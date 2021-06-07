@@ -1,0 +1,31 @@
+{
+  "name": "swarm-curve",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://gitlab.com/linumlabs/swarm-curve.git",
+  "author": "Veronica <veronica.21.coutts@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "build": "etherlime compile --runs=500 --solcVersion=0.5.0 --exportAbi",
+    "start": "etherlime ganache -q --networkId=1337 --gasLimit=10000000",
+    "test": "etherlime test --solcVersion=0.5.0 --output=none --timeout 100000 --gas-report=true",
+    "test-one": "etherlime test ./test/Curve.test.js --output=none --timeout 100000 --gas-report=true",
+    "remixd": "remixd -s ./contracts --remix-ide https://remix.ethereum.org",
+    "cover": "etherlime coverage --runs=500  --solcVersion=0.5.0 --timeout=100000",
+    "deploy:local": "etherlime deploy --compile=false --network=local --runs=500",
+    "deploy:rinkeby": "etherlime deploy --compile=false --network=rinkeby --runs=500",
+    "deploy:goerli": "etherlime deploy --compile=false --network=goerli --runs=500",
+    "deploy:mainnet": "etherlime deploy --compile=false --network=mainnet --runs=500",
+    "flat": "etherlime flatten Eth_portal.sol --solcVersion=0.5.0",
+    "clean": "rm -rf build && rm -rf contracts/artifacts && rm -rf .etherlime-store"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "2.5.0",
+    "dotenv": "8.0.0",
+    "etherlime": "2.3.3",
+    "etherlime-lib": "1.2.3",
+    "ethers": "5.0.15",
+    "remixd": "^0.2.4-alpha.0"
+  }
+}
