@@ -239,3 +239,7 @@ Or jump directly to the final audit report:
 #### [> Final audit report](./Buzzar_final_audit_report.pdf)
 
 ---
+
+### License
+
+This library is distributed under the BSD-style license found in the LICENSE file.

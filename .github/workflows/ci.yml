@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: 
+      - master
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - '**'
+
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '10'
+
+      # Restore the yarn cache
+      - uses: c-hive/gha-yarn-cache@v1
+      
+      - name: Yarn install
+        run: yarn install
+
+      - name: Build
+        run: yarn build
+
+      - name: Test
+        run: yarn start > /dev/null & yarn test
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            build/Curve.json
+            build/Eth_broker.json
+            build/Token.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
