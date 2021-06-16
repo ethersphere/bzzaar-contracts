@@ -124,7 +124,7 @@ Below is a function by function breakdown of the `view` (non state changing) cur
 
 #### `collateralToken`
 
-**Purpose:** Allows a user to check the address off the collateral token (DAI).
+**Purpose:** Allows a user to check the address of the collateral token (DAI).
 
 **Parameters:**
 - N/A
