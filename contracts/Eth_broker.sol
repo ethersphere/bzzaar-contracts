@@ -263,7 +263,7 @@ contract Eth_broker {
         mutex()
         returns (bool)
     {
-        (uint256 daiNeeded, uint256 ethReceived, , uint256 ethSpent) = _commonMint(
+        (uint256 daiNeeded, uint256 ethReceived, uint256 ethSpent) = _commonMint(
             _tokenAmount,
             _maxDaiSpendAmount,
             _deadline,
