@@ -339,7 +339,7 @@ contract Eth_broker {
             "Curve burn failed"
         );
         // Getting expected ETH for DAI
-        uint256 ethMin = sellRewardDai(dai_.balanceOf(address(this)));
+        uint256 ethMin = sellRewardDai(_minDaiSellValue);
         // Approving the router as a spender
         require(
             dai_.approve(
