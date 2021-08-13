@@ -1,14 +1,12 @@
-const etherlime = require("etherlime-lib");
-const ethers = require("ethers");
-
-let curve_abi = require("../build/Curve.json");
-let curve_test_abi = require("../build/Curve_test.json");
-let token_abi = require("../build/Token.json");
-let i_token_abi = require("../build/I_Token.json");
-let i_curve_abi = require("../build/I_Curve.json");
-let mock_dai_abi = require("../build/Mock_dai.json");
-let eth_broker_abi = require("../build/Eth_broker.json");
-let mock_router_abi = require("../build/Mock_router.json");
+const { ethers } = require("hardhat");
+let curve_abi = require("../artifacts/contracts/Curve.sol/Curve.json");
+let curve_test_abi = require("../artifacts/contracts/Curve_test.sol/curve_test.json");
+let token_abi = require("../artifacts/contracts/Token.sol/Token.json");
+let i_token_abi = require("../artifacts/contracts/I_Token.sol/I_Token.json");
+let i_curve_abi = require("../artifacts/contracts/I_Curve.sol/I_Curve.json");
+let mock_dai_abi = require("../artifacts/contracts/Mock_dai.sol/Mock_dai.json");
+let eth_broker_abi = require("../artifacts/contracts/Eth_broker.sol/Eth_broker.json");
+let mock_router_abi = require("../artifacts/contracts/Mock_router.sol/Mock_router.json");
 
 const pre_mint_sequence = {
   // These amounts are each half of the open market supply
@@ -168,7 +166,6 @@ var erc20 = {
 
 module.exports = {
   ethers,
-  etherlime,
   curve_abi,
   curve_test_abi,
   token_abi,
@@ -182,3 +179,4 @@ module.exports = {
   test_settings,
   erc20,
 };
+

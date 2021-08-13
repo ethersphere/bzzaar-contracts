@@ -20,7 +20,7 @@ const defaultConfigs = {
   gasLimit: ethers.utils.parseUnits(process.env.GAS_LIMIT, 0),
   gasPrice: ethers.utils.parseUnits(process.env.GAS_PRICE, 0),
   chainId: 1,
-	etherscanApiKey: ""
+	etherscanApiKey: "3DQYBPZZS77YDR15NKJHURVTV9WI2KH6UY"
 };
 
 const deploy = async (network, secret) => {

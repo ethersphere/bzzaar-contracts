@@ -1,31 +1,23 @@
 {
-  "name": "swarm-curve",
-  "version": "1.0.0",
-  "main": "index.js",
-  "repository": "https://gitlab.com/linumlabs/swarm-curve.git",
-  "author": "Veronica <veronica.21.coutts@gmail.com>",
-  "license": "MIT",
-  "private": false,
+  "name": "warp-core",
+  "description": "customized environment for web3 development",
+  "version": "0.0.3",
+  "private": true,
+  "workspaces": [
+    "app",
+    "chain"
+  ],
   "scripts": {
-    "build": "etherlime compile --runs=500 --solcVersion=0.5.0 --exportAbi",
-    "start": "etherlime ganache -q --networkId=1337 --gasLimit=10000000",
-    "test": "etherlime test --solcVersion=0.5.0 --output=none --timeout 100000 --gas-report=true",
-    "test-one": "etherlime test ./test/Curve.test.js --output=none --timeout 100000 --gas-report=true",
-    "remixd": "remixd -s ./contracts --remix-ide https://remix.ethereum.org",
-    "cover": "etherlime coverage --runs=500  --solcVersion=0.5.0 --timeout=100000",
-    "deploy:local": "etherlime deploy --compile=false --network=local --runs=500",
-    "deploy:rinkeby": "etherlime deploy --compile=false --network=rinkeby --runs=500",
-    "deploy:goerli": "etherlime deploy --compile=false --network=goerli --runs=500",
-    "deploy:mainnet": "etherlime deploy --compile=false --network=mainnet --runs=500",
-    "flat": "etherlime flatten Eth_portal.sol --solcVersion=0.5.0",
-    "clean": "rm -rf build && rm -rf contracts/artifacts && rm -rf .etherlime-store"
+    "chain": "yarn workspace @warp-core/chain chain",
+    "start": "yarn workspace @warp-core/app start",
+    "build": "yarn workspace @warp-core/app build",
+    "test:app": "yarn workspace @warp-core/app test",
+    "eject": "yarn workspace @warp-core/app eject",
+    "compile": "yarn workspace @warp-core/chain compile",
+    "test:chain": "yarn workspace @warp-core/chain test",
+    "deploy": "yarn workspace @warp-core/chain deploy"
   },
-  "dependencies": {
-    "@openzeppelin/contracts": "2.5.0",
-    "dotenv": "8.0.0",
-    "etherlime": "2.3.5",
-    "etherlime-lib": "1.2.3",
-    "ethers": "5.0.15",
-    "remixd": "^0.2.4-alpha.0"
+  "devDependencies": {
+    "ts-node": "^9.1.1"
   }
 }
