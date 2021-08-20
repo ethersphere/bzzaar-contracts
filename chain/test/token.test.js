@@ -1,30 +1,21 @@
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert } = require("chai");
 const { 
     ethers,
-    etherlime,
     token_abi,
     erc20,
     tokenSettings
 } = require("./settings.test.js");
 
 describe("🤑 Token Tests", () => {
-    // Users
-    let insecureDeployer = accounts[0];
-
-    // Deployer instance
-    let deployer;
-
-    // Contract instances
+    // Contract instance
     let tokenInstance;
-
-    beforeEach(async () => {
-        deployer = new etherlime.EtherlimeGanacheDeployer(insecureDeployer.secretKey);
-    });
 
     describe("Parent input validation checks", () => {
         it("(detailed) Correct deployment", async () => {
-            tokenInstance = await deployer.deploy(
-                token_abi,
-                false,
+            const tokenArtifacts = await ethers.getContractFactory("Token");
+            tokenInstance = await tokenArtifacts.deploy(
                 tokenSettings.bzz.name,
                 tokenSettings.bzz.symbol,
                 tokenSettings.bzz.decimals,
@@ -53,17 +44,13 @@ describe("🤑 Token Tests", () => {
         });
 
         it("🚫 (cap) Can't deploy a 0 cap", async () => {
-            await assert.revertWith(
-                tokenInstance = deployer.deploy(
-                    token_abi,
-                    false,
-                    erc20.constructor_valid.name,
-                    erc20.constructor_valid.symbol,
-                    erc20.constructor_valid.decimals,
-                    erc20.constructor_invalid.cap
-                ), 
-                erc20.errors.cap_zero
-            );
+            const tokenArtifacts = await ethers.getContractFactory("Token");
+            await expect(tokenArtifacts.deploy(
+                erc20.constructor_valid.name,
+                erc20.constructor_valid.symbol,
+                erc20.constructor_valid.decimals,
+                erc20.constructor_invalid.cap
+            )).to.be.revertedWith(erc20.errors.cap_zero);
         });
     });
 });
