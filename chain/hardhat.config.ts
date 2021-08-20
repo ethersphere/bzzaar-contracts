@@ -4,6 +4,7 @@ import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import { HardhatUserConfig } from 'hardhat/types';
 import * as dotenv from "dotenv";
+import { ethers } from "hardhat";
 
 dotenv.config();
 
@@ -18,7 +19,11 @@ const config: HardhatUserConfig = {
     compilers: [{ version: "0.5.0", settings: {} }],
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      accounts: {
+        accountsBalance: "1000000000000000000000000"
+      }
+    },
     localhost: {
       url: "http://localhost:8545",
       /*
