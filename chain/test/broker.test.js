@@ -13,6 +13,10 @@ const {
   test_settings,
 } = require("./settings.test.js");
 
+// NOTE: due to an issue in the simulated costs, accounts will run out of Ether
+// if the entire Broker test suite is run. You can still run the test suite by
+// running the tests one by one. A fix is in progress.
+
 describe("🤝 Broker tests", () => {
   let investor;
   let owner;
@@ -27,9 +31,7 @@ describe("🤝 Broker tests", () => {
   let mockRouterInstance;
   let mockWethInstance;
 
-  const provider = new ethers.providers.JsonRpcProvider(
-    "http://localhost:8545"
-  );
+  const provider = new ethers.providers.getDefaultProvider();
 
   beforeEach(async () => {
     const accounts = await ethers.getSigners();
@@ -43,6 +45,12 @@ describe("🤝 Broker tests", () => {
     for (let i = 0; i < accountSlice.length; i++) {
       await accountSlice[i].sendTransaction({ to: owner.address, value: lossaEther}) 
     }
+
+    // await network.provider.send("hardhat_setBalance", [
+    //   owner.address,
+    //   "0x46293e5939a08ce9",
+    // ]);
+    
 
     const tokenArtifacts = await ethers.getContractFactory("Token");
     tokenInstance = await tokenArtifacts.deploy(

@@ -13,11 +13,12 @@ dotenv.config();
  */
 
 const config: HardhatUserConfig = {
-  defaultNetwork: "localhost",
+  defaultNetwork: "hardhat",
   solidity: {
-    compilers: [{ version: "0.7.3", settings: {} }],
+    compilers: [{ version: "0.5.0", settings: {} }],
   },
   networks: {
+    hardhat: {},
     localhost: {
       url: "http://localhost:8545",
       /*
