@@ -512,7 +512,7 @@ const {
         * Tests that the curve cannot be initialized if the curve has 
         * not been given minter rights on the token
         */
-       it.only("Cannot initialize if curve is not minter", async() => {
+       it("Cannot initialize if curve is not minter", async() => {
             // Minting the pre-mint tokens to the pre-mint owner
             await tokenInstance.connect(owner).mint(
                 investor.address,

@@ -100,7 +100,8 @@ const test_settings = {
     safe_math_add: "SafeMath: addition overflow",
     safe_math_sub: "SafeMath: subtraction overflow",
     safe_math_mul: "SafeMath: multiplication overflow",
-    safe_math_div_zero: "SafeMath: division by zero"
+    safe_math_div_zero: "SafeMath: division by zero",
+    minter_is_minter: "MinterRole: caller does not have the Minter role"
   },
   eth_broker: {
     dai: {
