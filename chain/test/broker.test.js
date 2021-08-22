@@ -12,6 +12,7 @@ const {
   tokenSettings,
   test_settings,
 } = require("./settings.test.js");
+const { network } = require("hardhat");
 
 describe("🤝 Broker tests", () => {
   let investor;
@@ -35,6 +36,11 @@ describe("🤝 Broker tests", () => {
     investor = accounts[1];
     user = accounts[2];
     user_two = accounts[3];
+
+    await network.provider.send("hardhat_setBalance", [
+      owner.address,
+      "0x46293e5939a08ce9",
+    ])
 
     const tokenArtifacts = await ethers.getContractFactory("Token");
     tokenInstance = await tokenArtifacts.deploy(
@@ -373,9 +379,14 @@ describe("🤝 Broker tests", () => {
      * The max dai spend slippage check is honoured
      */
     it("mint slippage check", async () => {
+      await network.provider.send("hardhat_setBalance", [
+        owner.address,
+        "0x46293e5939a08ce9",
+      ])
+
       let time = await brokerInstance.getTime();
       // Testing expected behaviour
-      await expect(brokerInstance.mint(
+      await expect(brokerInstance.connect(owner).mint(
         test_settings.bzz.buyAmount,
         test_settings.dai.sellReward,
         time,
