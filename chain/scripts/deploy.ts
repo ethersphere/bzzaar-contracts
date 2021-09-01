@@ -354,9 +354,6 @@ async function main() {
       }));
 
   }
-
-  // todos: add table
-  // todo: don't forget to clean up when ready
 }
 
 main()

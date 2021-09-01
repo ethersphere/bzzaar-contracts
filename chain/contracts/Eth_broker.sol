@@ -217,7 +217,7 @@ contract Eth_broker {
         mutex()
         returns (bool)
     {
-        (uint256 daiNeeded, uint256 ethReceived) = _commonMint(
+        (uint256 daiNeeded, uint256 ethReceived, uint256 ethSpent) = _commonMint(
             _tokenAmount,
             _maxDaiSpendAmount,
             _deadline,
@@ -228,7 +228,7 @@ contract Eth_broker {
             msg.sender, 
             _tokenAmount, 
             daiNeeded, 
-            ethReceived, 
+            ethSpent,
             _maxDaiSpendAmount
         );
         // Returning that the mint executed successfully
@@ -263,7 +263,7 @@ contract Eth_broker {
         mutex()
         returns (bool)
     {
-        (uint256 daiNeeded, uint256 ethReceived) = _commonMint(
+        (uint256 daiNeeded, uint256 ethReceived, uint256 ethSpent) = _commonMint(
             _tokenAmount,
             _maxDaiSpendAmount,
             _deadline,
@@ -275,7 +275,7 @@ contract Eth_broker {
             _to,
             _tokenAmount, 
             daiNeeded, 
-            ethReceived, 
+            ethSpent,
             _maxDaiSpendAmount
         );
         // Returning that the mint executed successfully
@@ -349,6 +349,7 @@ contract Eth_broker {
             "DAI approve failed"
         );
         // Selling DAI received for ETH
+        uint[] memory swapOutputs = new uint[](2);
         router_.swapExactTokensForETH(
             daiReward, 
             ethMin, 
@@ -361,7 +362,7 @@ contract Eth_broker {
             msg.sender, 
             _tokenAmount, 
             daiReward, 
-            ethMin, 
+            swapOutputs[1], 
             _minDaiSellValue
         );
         // Returning that the burn executed successfully
@@ -406,7 +407,8 @@ contract Eth_broker {
         internal
         returns(
             uint256 daiNeeded,
-            uint256 ethReceived
+            uint256 ethReceived,
+            uint256 ethSpent
         )
     {
         // Getting the exact needed amount of DAI for desired token amount
@@ -417,7 +419,8 @@ contract Eth_broker {
             "DAI required for trade above max"
         );
         // Swapping sent ETH for exact amount of DAI needed
-        router_.swapETHForExactTokens.value(msg.value)(
+        uint[] memory swapOutputs = new uint[](2);
+        swapOutputs = router_.swapETHForExactTokens.value(msg.value)(
             daiNeeded, 
             getPath(true), 
             address(this), 
@@ -425,6 +428,7 @@ contract Eth_broker {
         );
         // Getting the amount of ETH received
         ethReceived = address(this).balance;
+        ethSpent = swapOutputs[0];
         // Approving the curve as a spender
         require(
             dai_.approve(address(curve_), daiNeeded),

@@ -40,7 +40,7 @@ describe("🤝 Broker tests", () => {
     await network.provider.send("hardhat_setBalance", [
       owner.address,
       "0x46293e5939a08ce9",
-    ])
+    ]);
 
     const tokenArtifacts = await ethers.getContractFactory("Token");
     tokenInstance = await tokenArtifacts.deploy(
@@ -113,6 +113,7 @@ describe("🤝 Broker tests", () => {
       to: mockRouterInstance.address,
       value: test_settings.eth_broker.eth.seed_eth_amount
     });
+
     // Minting DAI to seed the router
     await collateralInstance
       .connect(user)
@@ -210,6 +211,12 @@ describe("🤝 Broker tests", () => {
      * and that the balances of the involved addresses changes correctly.
      */
     it("Swap exact tokens (DAI) for ETH test", async () => {
+      // sometimes previous tests cause additional ETH to be sent to the router
+      // this ensures the balances are correct
+      // await network.provider.send("hardhat_setBalance", [
+      //   mockRouterInstance.address,
+      //   "0x021e19e0c9bab2400000",
+      // ]);
       let mockRouterEthBalance = await provider.getBalance(
         mockRouterInstance.address
       );
@@ -378,11 +385,12 @@ describe("🤝 Broker tests", () => {
     /**
      * The max dai spend slippage check is honoured
      */
-    it("mint slippage check", async () => {
+    it.only("mint slippage check", async () => {
       await network.provider.send("hardhat_setBalance", [
         owner.address,
-        "0x46293e5939a08ce9",
+        "0x46293e5939a08ce9000",
       ])
+      await collateralInstance.connect(owner).mint(ethers.utils.parseUnits("1000000"));
 
       let time = await brokerInstance.getTime();
       // Testing expected behaviour

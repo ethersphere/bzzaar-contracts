@@ -49,10 +49,10 @@ const config: HardhatUserConfig = {
     //   url: `https://ropsten.infura.io/v3/${process.env.ROPSTEN_INFURA_KEY}`,
     //   accounts: [`${process.env.ROPSTEN_DEPLOYER_PRIV_KEY}`],
     // },
-    // goerli: {
-    //   url: `https://goerli.infura.io/v3/${process.env.GOERLI_INFURA_KEY}`,
-    //   accounts: [`${process.env.GOERLI_DEPLOYER_PRIV_KEY}`],
-    // },
+    goerli: {
+      url: `https://goerli.infura.io/v3/${process.env.GOERLI_INFURA_KEY}`,
+      accounts: [`${process.env.GOERLI_DEPLOYER_PRIV_KEY}`],
+    },
     // xdai: {
     //   url: 'https://dai.poa.network',
     //   gasPrice: 1000000000,
