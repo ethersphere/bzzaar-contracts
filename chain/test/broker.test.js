@@ -37,11 +37,6 @@ describe("🤝 Broker tests", () => {
     user = accounts[2];
     user_two = accounts[3];
 
-    await network.provider.send("hardhat_setBalance", [
-      owner.address,
-      "0x46293e5939a08ce9",
-    ]);
-
     const tokenArtifacts = await ethers.getContractFactory("Token");
     tokenInstance = await tokenArtifacts.deploy(
       tokenSettings.bzz.name,
@@ -211,12 +206,6 @@ describe("🤝 Broker tests", () => {
      * and that the balances of the involved addresses changes correctly.
      */
     it("Swap exact tokens (DAI) for ETH test", async () => {
-      // sometimes previous tests cause additional ETH to be sent to the router
-      // this ensures the balances are correct
-      // await network.provider.send("hardhat_setBalance", [
-      //   mockRouterInstance.address,
-      //   "0x021e19e0c9bab2400000",
-      // ]);
       let mockRouterEthBalance = await provider.getBalance(
         mockRouterInstance.address
       );
@@ -385,11 +374,8 @@ describe("🤝 Broker tests", () => {
     /**
      * The max dai spend slippage check is honoured
      */
-    it.only("mint slippage check", async () => {
-      await network.provider.send("hardhat_setBalance", [
-        owner.address,
-        "0x46293e5939a08ce9000",
-      ])
+    it("mint slippage check", async () => {
+
       await collateralInstance.connect(owner).mint(ethers.utils.parseUnits("1000000"));
 
       let time = await brokerInstance.getTime();

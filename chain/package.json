@@ -1,5 +1,5 @@
 {
-  "name": "@warp-core/chain",
+  "name": "@bzzaar-contracts/chain",
   "version": "0.0.3",
   "description": "custom Hardhat blockchain dev environment",
   "main": "index.js",

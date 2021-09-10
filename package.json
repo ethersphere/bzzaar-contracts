@@ -1,5 +1,5 @@
 {
-  "name": "warp-core",
+  "name": "bzzaar-contracts",
   "description": "customized environment for web3 development",
   "version": "0.0.3",
   "private": true,
@@ -8,16 +8,19 @@
     "chain"
   ],
   "scripts": {
-    "chain": "yarn workspace @warp-core/chain chain",
-    "start": "yarn workspace @warp-core/app start",
-    "build": "yarn workspace @warp-core/app build",
-    "test:app": "yarn workspace @warp-core/app test",
-    "eject": "yarn workspace @warp-core/app eject",
-    "compile": "yarn workspace @warp-core/chain compile",
-    "test:chain": "yarn workspace @warp-core/chain test",
-    "deploy": "yarn workspace @warp-core/chain deploy"
+    "chain": "yarn workspace @bzzaar-contracts/chain chain",
+    "start": "yarn workspace @bzzaar-contracts/app start",
+    "build": "yarn workspace @bzzaar-contracts/app build",
+    "test:app": "yarn workspace @bzzaar-contracts/app test",
+    "eject": "yarn workspace @bzzaar-contracts/app eject",
+    "compile": "yarn workspace @bzzaar-contracts/chain compile",
+    "test:chain": "yarn workspace @bzzaar-contracts/chain test:chain",
+    "deploy": "yarn workspace @bzzaar-contracts/chain deploy"
   },
   "devDependencies": {
     "ts-node": "^9.1.1"
+  },
+  "dependencies": {
+    "hardhat": "2.6.4"
   }
 }
