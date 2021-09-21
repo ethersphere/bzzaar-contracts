@@ -1,4 +1,4 @@
-import { formatEther } from "@ethersproject/units";
+import { formatUnits } from "@ethersproject/units";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect, assert } from "chai";
 import { Contract } from "ethers";
@@ -94,20 +94,10 @@ describe("🤝 Broker tests", () => {
     mockRouterInstance = await mockRouterArtifacts.deploy(
       mockWethInstance.address,
     );
-    console.log("Crashes here:")
-    try {
-      console.log("balance", formatEther((await owner.getBalance())))
-      console.log("provider",  await owner.provider?.getNetwork())
-      await owner.sendTransaction({
-        to: mockRouterInstance.address,
-        value: test_settings.eth_broker.eth.seed_eth_amount
-      });
-    } catch (error) {
-      console.log("balance 2", formatEther((await owner.getBalance())))
-      console.log(error)
-      console.log("fuck")
-    }
-    console.log("Post crash")
+    await owner.sendTransaction({
+      to: mockRouterInstance.address,
+      value: test_settings.eth_broker.eth.seed_eth_amount
+    });
 
     // Minting DAI to seed the router
     await collateralInstance

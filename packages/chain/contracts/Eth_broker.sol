@@ -22,7 +22,6 @@ contract Eth_broker {
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
-
     // Emitted when tokens are minted
     event mintTokensWithEth(
         address indexed buyer,      // The address of the buyer
@@ -419,7 +418,8 @@ contract Eth_broker {
             "DAI required for trade above max"
         );
         // Swapping sent ETH for exact amount of DAI needed
-        uint[] memory swapOutputs = new uint[](2);
+        uint256[] memory swapOutputs = new uint[](2);
+     
         swapOutputs = router_.swapETHForExactTokens.value(msg.value)(
             daiNeeded, 
             getPath(true), 
