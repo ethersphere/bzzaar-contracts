@@ -1,33 +1,27 @@
-require("@nomiclabs/hardhat-waffle");
-const hre = require("hardhat");
-const { expect } = require("chai");
-const {
-    ethers,
-    curve_test_abi,
-    token_abi,
-    mock_dai_abi,
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { expect } from "chai";
+import { Contract } from "ethers";
+import { ethers } from "hardhat";
+import {
     pre_mint_sequence,
     tokenSettings,
     test_settings
-} = require("./settings.test.js");
+} from "./settings.test";
 
 describe("🧮 Curve Calculations Tests", () => {
-    let investor;
-    let owner;
-    let user;
-    let user_two;
+    let investor: SignerWithAddress;
+    let owner: SignerWithAddress;
+    let user: SignerWithAddress;
     
-    let deployer;
-    let tokenInstance;
-    let collateralInstance;
-    let curveTestInstance;
+    let tokenInstance: Contract;
+    let collateralInstance: Contract;
+    let curveTestInstance: Contract;
 
     beforeEach(async () => {
       const accounts = await ethers.getSigners();
       owner = accounts[0];
       investor = accounts[1];
       user = accounts[2];
-      user_two = accounts[3];
 
       const accountSlice = accounts.slice(4,19);
       const lossaEther = ethers.utils.parseEther("9999.99");

@@ -18,6 +18,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [{ version: "0.5.0", settings: {} }],
   },
+  
   networks: {
     hardhat: {
       accounts: {
@@ -67,4 +68,5 @@ const config: HardhatUserConfig = {
     // timeout: "300s",
   },
 };
+
 export default config;
