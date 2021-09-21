@@ -1,10 +1,9 @@
-import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
+// import "hardhat-typechain";
 import { HardhatUserConfig } from 'hardhat/types';
 import * as dotenv from "dotenv";
-import { ethers } from "hardhat";
 
 dotenv.config();
 
@@ -14,11 +13,14 @@ dotenv.config();
  */
 
 const config: HardhatUserConfig = {
-  defaultNetwork: "hardhat",
   solidity: {
-    compilers: [{ version: "0.5.0", settings: {} }],
+    compilers: [{ version: "0.5.1", settings: {} }],
   },
-  
+  // typechain: {
+  //   outDir: "src/types",
+  //   target: "ethers-v5",
+  // },
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       accounts: {

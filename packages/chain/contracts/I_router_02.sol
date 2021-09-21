@@ -1,4 +1,4 @@
-pragma solidity 0.5.0;
+pragma solidity 0.5.1;
 
 /**
   * Please note that this interface was created as IUniswapV2Router02 uses

@@ -1,3 +1,4 @@
+import { formatEther } from "@ethersproject/units";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect, assert } from "chai";
 import { Contract } from "ethers";
@@ -15,7 +16,6 @@ describe("🤝 Broker tests", () => {
   let user: SignerWithAddress;
   let user_two: SignerWithAddress;
 
-  let deployer;
   let tokenInstance: Contract;
   let curveInstance: Contract;
   let collateralInstance: Contract;
@@ -26,11 +26,8 @@ describe("🤝 Broker tests", () => {
   const provider = waffle.provider;
 
   beforeEach(async () => {
-    console.log("before each")
-    const temp = await provider.ready
-    console.log("Fuck", temp)
-    const accounts = await ethers.getSigners();
-    console.log("Fuck", await accounts[0].provider?.getNetwork())
+    await provider.ready
+  const accounts = await ethers.getSigners();
     owner = accounts[0];
     investor = accounts[1];
     user = accounts[2];
@@ -50,7 +47,6 @@ describe("🤝 Broker tests", () => {
       tokenSettings.dai.symbol,
       tokenSettings.dai.decimals
     );
-
     const curveArtifacts = await ethers.getContractFactory("Curve");
     curveInstance = await curveArtifacts.deploy(
       tokenInstance.address,
@@ -98,15 +94,20 @@ describe("🤝 Broker tests", () => {
     mockRouterInstance = await mockRouterArtifacts.deploy(
       mockWethInstance.address,
     );
-    // priv key for account 0 of Hardhat
-    const ownerWallet = new ethers.Wallet(
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-      provider
-    );
-    await ownerWallet.sendTransaction({
-      to: mockRouterInstance.address,
-      value: test_settings.eth_broker.eth.seed_eth_amount
-    });
+    console.log("Crashes here:")
+    try {
+      console.log("balance", formatEther((await owner.getBalance())))
+      console.log("provider",  await owner.provider?.getNetwork())
+      await owner.sendTransaction({
+        to: mockRouterInstance.address,
+        value: test_settings.eth_broker.eth.seed_eth_amount
+      });
+    } catch (error) {
+      console.log("balance 2", formatEther((await owner.getBalance())))
+      console.log(error)
+      console.log("fuck")
+    }
+    console.log("Post crash")
 
     // Minting DAI to seed the router
     await collateralInstance

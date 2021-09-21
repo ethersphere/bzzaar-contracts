@@ -14,7 +14,6 @@ import {
     let user: SignerWithAddress;
     let user_two: SignerWithAddress;
 
-    let deployer;
     let tokenInstance: Contract;
     let curveInstance: Contract;
     let collateralInstance: Contract;
