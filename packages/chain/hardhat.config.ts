@@ -14,7 +14,7 @@ dotenv.config();
 
 const config: HardhatUserConfig = {
   solidity: {
-    compilers: [{ version: "0.5.1", settings: {} }],
+    compilers: [{ version: "0.5.0", settings: {} }],
   },
   // typechain: {
   //   outDir: "src/types",
