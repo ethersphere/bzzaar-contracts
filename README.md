@@ -2,7 +2,7 @@
 
 This repo has been set up to move the Bzzzar contracts from an Etherlime development environment to Hardhat, as Etherlime is no longer under active development. This was necessitated due to changes to the Eth Broker contract which caused the contract to longer pass its test suite in the Etherlime environment.
 
-Due to the time-intensive nature of converting the test suite, at this juncture only the tests for the Eth Broker (`/test/broker.test.js`) have been converted into the Hardhat-Waffle test format. Similarly, the deploy script is not yet converted to Hardhat.
+Due to the time-intensive nature of converting the test suite, at this juncture only the tests for the Eth Broker (`/test/broker.test.ts`) have been converted into the Hardhat-Waffle test format. Similarly, the deploy script is not yet converted to Hardhat.
 
 ### Setup
 
@@ -13,14 +13,16 @@ yarn
 
 ### Running the Eth Broker Tests
 
-You'll need a dev chain running in order to run the tests:
+To run all of the tests:
+
+run
 ```
-yarn chain
+yarn test:chain
 ```
 
 The command for running only the Eth Broker tests is:
 ```
-yarn hardhat test test/broker.test.js
+yarn test:chain ./test/broker.test.js
 ```
 The other tests are all passing in the original Etherlime environment, even though we would like to migrate them to Hardhat too.
 
