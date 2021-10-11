@@ -1,6 +1,14 @@
-import { ethers } from "hardhat";
+const { ethers } = require("hardhat");
+let curve_abi = require("../artifacts/contracts/Curve.sol/Curve.json");
+let curve_test_abi = require("../artifacts/contracts/Curve_test.sol/curve_test.json");
+let token_abi = require("../artifacts/contracts/Token.sol/Token.json");
+let i_token_abi = require("../artifacts/contracts/I_Token.sol/I_Token.json");
+let i_curve_abi = require("../artifacts/contracts/I_Curve.sol/I_Curve.json");
+let mock_dai_abi = require("../artifacts/contracts/Mock_dai.sol/Mock_dai.json");
+let eth_broker_abi = require("../artifacts/contracts/Eth_broker.sol/Eth_broker.json");
+let mock_router_abi = require("../artifacts/contracts/Mock_router.sol/Mock_router.json");
 
-export const pre_mint_sequence = {
+const pre_mint_sequence = {
   // These amounts are each half of the open market supply
   first_half: ethers.utils.parseUnits("31250000", 16),
   second_half: ethers.utils.parseUnits("31250000", 16),
@@ -21,7 +29,7 @@ export const pre_mint_sequence = {
   },
 };
 
-export const tokenSettings = {
+const tokenSettings = {
   dai: {
     name: "DAI",
     symbol: "DAI",
@@ -40,7 +48,7 @@ export const tokenSettings = {
   },
 };
 
-export const test_settings = {
+const test_settings = {
   bzz: {
     one: ethers.utils.parseUnits("1", tokenSettings.bzz.decimals),
     buyAmount: ethers.utils.parseUnits("1000", tokenSettings.bzz.decimals),
@@ -124,7 +132,7 @@ export const test_settings = {
   },
 };
 
-export var erc20 = {
+var erc20 = {
   events: {
     transfer: "Transfer",
     approval: "Approval",
@@ -156,3 +164,20 @@ export var erc20 = {
     zero_address: "0x0000000000000000000000000000000000000000",
   },
 };
+
+module.exports = {
+  ethers,
+  curve_abi,
+  curve_test_abi,
+  token_abi,
+  i_token_abi,
+  i_curve_abi,
+  mock_dai_abi,
+  eth_broker_abi,
+  mock_router_abi,
+  pre_mint_sequence,
+  tokenSettings,
+  test_settings,
+  erc20,
+};
+

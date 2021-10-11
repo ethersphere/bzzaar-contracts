@@ -1,33 +1,37 @@
-import { formatUnits } from "@ethersproject/units";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { expect, assert } from "chai";
-import { Contract } from "ethers";
-import { ethers, waffle } from "hardhat";
-import {
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert } = require("chai");
+const {
+  ethers,
+  curve_abi,
+  token_abi,
+  mock_dai_abi,
+  eth_broker_abi,
+  mock_router_abi,
   pre_mint_sequence,
   tokenSettings,
   test_settings,
-} from "./settings.test";
-
+} = require("./settings.test.js");
+const { network } = require("hardhat");
 
 describe("🤝 Broker tests", () => {
-  let investor: SignerWithAddress;
-  let owner: SignerWithAddress;
-  let user: SignerWithAddress;
-  let user_two: SignerWithAddress;
+  let investor;
+  let owner;
+  let user;
+  let user_two;
 
-  let tokenInstance: Contract;
-  let curveInstance: Contract;
-  let collateralInstance: Contract;
-  let brokerInstance: Contract;
-  let mockRouterInstance: Contract;
-  let mockWethInstance: Contract;
+  let deployer;
+  let tokenInstance;
+  let curveInstance;
+  let collateralInstance;
+  let brokerInstance;
+  let mockRouterInstance;
+  let mockWethInstance;
 
-  const provider = waffle.provider;
+  const provider = new ethers.providers.JsonRpcProvider();
 
   beforeEach(async () => {
-    await provider.ready
-  const accounts = await ethers.getSigners();
+    const accounts = await ethers.getSigners();
     owner = accounts[0];
     investor = accounts[1];
     user = accounts[2];
@@ -47,6 +51,7 @@ describe("🤝 Broker tests", () => {
       tokenSettings.dai.symbol,
       tokenSettings.dai.decimals
     );
+
     const curveArtifacts = await ethers.getContractFactory("Curve");
     curveInstance = await curveArtifacts.deploy(
       tokenInstance.address,
@@ -94,7 +99,12 @@ describe("🤝 Broker tests", () => {
     mockRouterInstance = await mockRouterArtifacts.deploy(
       mockWethInstance.address,
     );
-    await owner.sendTransaction({
+    // priv key for account 0 of Hardhat
+    const ownerWallet = new ethers.Wallet(
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      provider
+    );
+    await ownerWallet.sendTransaction({
       to: mockRouterInstance.address,
       value: test_settings.eth_broker.eth.seed_eth_amount
     });
@@ -458,7 +468,7 @@ describe("🤝 Broker tests", () => {
       // expect(mockRouterEthBalance.toString()).to.equal(test_settings.eth_broker.eth.seed_eth_amount);
       assert.equal(
         mockRouterEthBalance.toString(),
-        test_settings.eth_broker.eth.seed_eth_amount.toString(),
+        test_settings.eth_broker.eth.seed_eth_amount,
         "Mock router ETH balance incorrect"
       );
       // expect(mockRouterEthBalanceAfter.toString()).to.equal(test_settings.eth_broker.eth.mock_router_eth_balance_after_mint);
@@ -687,7 +697,7 @@ describe("🤝 Broker tests", () => {
       // expect(mockRouterEthBalance.toString()).to.equal(test_settings.eth_broker.eth.seed_eth_amount);
       assert.equal(
         mockRouterEthBalance.toString(),
-        test_settings.eth_broker.eth.seed_eth_amount.toString(),
+        test_settings.eth_broker.eth.seed_eth_amount,
         "Mock router ETH balance incorrect"
       );
       // expect(mockRouterEthBalanceAfter.toString()).to.equal(test_settings.eth_broker.eth.mock_router_eth_balance_after_mint);
@@ -971,7 +981,7 @@ describe("🤝 Broker tests", () => {
       // expect(userEthBalance.toString()).to.not.equal("0");
       assert.notEqual(
         userEthBalance.toString(),
-        "0",
+        0,
         "User ETH balance incorrect"
       );
       // broker balances are as expected
@@ -990,7 +1000,7 @@ describe("🤝 Broker tests", () => {
       // expect(brokerEthBalance.toString()).to.equal("0");
       assert.equal(
         brokerEthBalance.toString(),
-        "0",
+        0,
         "broker incorrectly has a balance in ETH"
       );
       // Curve has correct balance
@@ -1079,7 +1089,7 @@ describe("🤝 Broker tests", () => {
       // expect(brokerEthBalanceAfter.toString()).to.equal("0");
       assert.equal(
         brokerEthBalanceAfter.toString(),
-        "0",
+        0,
         "broker incorrectly has a balance in ETH after burn"
       );
       // Curve has correct balance

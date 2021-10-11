@@ -1,9 +1,12 @@
-import  { expect, assert } from "chai";
-import { ethers } from "hardhat";
-import  { 
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert } = require("chai");
+const { 
+    ethers,
+    token_abi,
     erc20,
     tokenSettings
-} from "./settings.test";
+} = require("./settings.test.js");
 
 describe("🤑 Token Tests", () => {
     // Contract instance
