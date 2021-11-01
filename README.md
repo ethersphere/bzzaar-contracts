@@ -22,5 +22,5 @@ yarn test:chain
 
 The command for running only the Eth Broker tests is:
 ```
-yarn test:chain ./test/broker.test.js
+yarn test:chain ./packages/chain/test/broker.test.js
 ```
