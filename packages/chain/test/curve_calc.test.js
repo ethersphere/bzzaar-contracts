@@ -80,29 +80,12 @@ describe("🧮 Curve Calculations Tests", () => {
             );
             // Testing expected behaviour
             expect(buyCost.toString()).to.equal(initialCost.toString());
-            // assert.equal(
-            //     buyCost.toString(),
-            //     initialCost.toString(),
-            //     "Init and mint function providing different costs"
-            // );
+
             expect(buyCost.toString()).to.equal(primFuncAtPreMint.toString());
-            // assert.equal(
-            //     buyCost.toString(),
-            //     primFuncAtPreMint.toString(),
-            //     "Mint cost and primitive function return different results"
-            // );
+
             expect(initialCost.toString()).to.equal(pre_mint_sequence.dai.cost);
-            // assert.equal(
-            //     initialCost.toString(),
-            //     pre_mint_sequence.dai.cost,
-            //     "Cost for curve init is incorrect"
-            // );
+
             expect(primFuncAtZero.toString()).to.equal("0");
-            // assert.equal(
-            //     primFuncAtZero.toString(),
-            //     0,
-            //     "Prim function for 0 supply is non-zero"
-            // );
         });
         /**
          * Testing that the price per token is never 0, even before the curve has
@@ -113,17 +96,8 @@ describe("🧮 Curve Calculations Tests", () => {
             let spotPriceAtStart = await curveTestInstance.spotPrice(0);
             // Testing expected behaviour
             expect(spotPriceAtStart.toString()).to.not.equal("0");
-            // assert.notEqual(
-            //     spotPriceAtStart.toString(),
-            //     0,
-            //     "FATAL Price per token is 0"
-            // );
+
             expect(spotPriceAtStart.toString()).to.equal("1");
-            // assert.equal(
-            //     spotPriceAtStart.toString(),
-            //     1,
-            //     "Price per token is not expected"
-            // );
         });
     });
 
@@ -169,11 +143,6 @@ describe("🧮 Curve Calculations Tests", () => {
             let helper = await curveTestInstance.helper(pre_mint_sequence.whole);
             // Testing expected behaviour
             expect(helper.toString()).to.equal(test_settings.helper_value);
-            // assert.equal(
-            //     helper.toString(),
-            //     test_settings.helper_value,
-            //     "Helper value unexpected"
-            // );
         });
         /**
          * Testing that after the curve has pre-minted that the price for each
@@ -197,29 +166,12 @@ describe("🧮 Curve Calculations Tests", () => {
             let spotPricePostMint = await curveTestInstance.spotPrice(pre_mint_sequence.whole);
             // Testing expected behaviour
             expect(buyCost.toString()).to.equal(test_settings.dai.buyCost);
-            // assert.equal(
-            //     buyCost.toString(),
-            //     test_settings.dai.buyCost,
-            //     "Mint cost incorrect"
-            // );
+
             expect(primFuncAtZero.toString()).to.equal(pre_mint_sequence.dai.cost);
-            // assert.equal(
-            //     primFuncAtZero.toString(),
-            //     pre_mint_sequence.dai.cost,
-            //     "Prim function for pre-buy incorrect"
-            // );
+
             expect(primFuncAtPreMint.toString()).to.equal(test_settings.dai.curve_coll_at_prem);
-            // assert.equal(
-            //     primFuncAtPreMint.toString(),
-            //     test_settings.dai.curve_coll_at_prem,
-            //     "Prim function for post-buy incorrect"
-            // );
+
             expect(spotPricePostMint.toString()).to.equal(test_settings.dai.one_cost);
-            // assert.equal(
-            //     spotPricePostMint.toString(),
-            //     test_settings.dai.one_cost,
-            //     "Start cost per token incorrect"
-            // );
         });
         /**
          * Testing that after the curves pre-mint the sell price for each token
@@ -248,11 +200,6 @@ describe("🧮 Curve Calculations Tests", () => {
             );
             // Testing expected behaviour
             expect(sellRewardWithdraw[0].toString()).to.equal(test_settings.dai.buyCost);
-            // assert.equal(
-            //     sellRewardWithdraw[0].toString(),
-            //     test_settings.dai.buyCost,
-            //     "Sell reward is incorrect"
-            // );
         });
     });
 });
