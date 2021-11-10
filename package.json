@@ -1,31 +1,30 @@
 {
-  "name": "swarm-curve",
-  "version": "1.0.0",
-  "main": "index.js",
-  "repository": "https://gitlab.com/linumlabs/swarm-curve.git",
-  "author": "Veronica <veronica.21.coutts@gmail.com>",
-  "license": "MIT",
-  "private": false,
+  "name": "bzzaar-contracts",
+  "description": "customized environment for web3 development",
+  "version": "0.0.3",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ],
+    "nohoist": [
+      "**/webpack-dev-server",
+      "**/react-scripts"
+    ]
+  },
   "scripts": {
-    "build": "etherlime compile --runs=500 --solcVersion=0.5.0 --exportAbi",
-    "start": "etherlime ganache -q --networkId=1337 --gasLimit=10000000",
-    "test": "etherlime test --solcVersion=0.5.0 --output=none --timeout 100000 --gas-report=true",
-    "test-one": "etherlime test ./test/Curve.test.js --output=none --timeout 100000 --gas-report=true",
-    "remixd": "remixd -s ./contracts --remix-ide https://remix.ethereum.org",
-    "cover": "etherlime coverage --runs=500  --solcVersion=0.5.0 --timeout=100000",
-    "deploy:local": "etherlime deploy --compile=false --network=local --runs=500",
-    "deploy:rinkeby": "etherlime deploy --compile=false --network=rinkeby --runs=500",
-    "deploy:goerli": "etherlime deploy --compile=false --network=goerli --runs=500",
-    "deploy:mainnet": "etherlime deploy --compile=false --network=mainnet --runs=500",
-    "flat": "etherlime flatten Eth_portal.sol --solcVersion=0.5.0",
-    "clean": "rm -rf build && rm -rf contracts/artifacts && rm -rf .etherlime-store"
+    "chain": "yarn workspace @bzzaar-contracts/chain chain",
+    "start": "yarn workspace @bzzaar-contracts/app start",
+    "build": "yarn workspace @bzzaar-contracts/app build",
+    "eject": "yarn workspace @bzzaar-contracts/app eject",
+    "compile": "yarn workspace @bzzaar-contracts/chain compile",
+    "test:chain": "yarn workspace @bzzaar-contracts/chain test",
+    "deploy": "yarn workspace @bzzaar-contracts/chain deploy"
+  },
+  "devDependencies": {
+    "ts-node": "^9.1.1"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "2.5.0",
-    "dotenv": "8.0.0",
-    "etherlime": "2.3.5",
-    "etherlime-lib": "1.2.3",
-    "ethers": "5.0.15",
-    "remixd": "^0.2.4-alpha.0"
+    "hardhat": "2.6.4"
   }
 }

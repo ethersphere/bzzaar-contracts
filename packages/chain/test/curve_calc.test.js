@@ -1,6 +1,8 @@
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect } = require("chai");
 const {
     ethers,
-    etherlime,
     curve_test_abi,
     token_abi,
     mock_dai_abi,
@@ -10,42 +12,49 @@ const {
 } = require("./settings.test.js");
 
 describe("🧮 Curve Calculations Tests", () => {
-    let investor = accounts[0];
-    let owner = accounts[1];
-    let user = accounts[2];
-    let user_two = accounts[3];
-
+    let investor;
+    let owner;
+    let user;
+    let user_two;
+    
     let deployer;
     let tokenInstance;
     let collateralInstance;
     let curveTestInstance;
 
     beforeEach(async () => {
-        deployer = new etherlime.EtherlimeGanacheDeployer(owner.secretKey);
+      const accounts = await ethers.getSigners();
+      owner = accounts[0];
+      investor = accounts[1];
+      user = accounts[2];
+      user_two = accounts[3];
 
-        tokenInstance = await deployer.deploy(
-            token_abi,
-            false,
-            tokenSettings.bzz.name,
-            tokenSettings.bzz.symbol,
-            tokenSettings.bzz.decimals,
-            tokenSettings.bzz.cap
-        );
+      const accountSlice = accounts.slice(4,19);
+      const lossaEther = ethers.utils.parseEther("9999.99");
+      for (let i = 0; i < accountSlice.length; i++) {
+        await accountSlice[i].sendTransaction({ to: owner.address, value: lossaEther}) 
+      }
 
-        collateralInstance = await deployer.deploy(
-            mock_dai_abi,
-            false,
-            tokenSettings.dai.name,
-            tokenSettings.dai.symbol,
-            tokenSettings.dai.decimals
-        );
+      const tokenArtifacts = await ethers.getContractFactory("Token");
+      tokenInstance = await tokenArtifacts.deploy(
+        tokenSettings.bzz.name,
+        tokenSettings.bzz.symbol,
+        tokenSettings.bzz.decimals,
+        tokenSettings.bzz.cap
+      );
 
-        curveTestInstance = await deployer.deploy(
-            curve_test_abi,
-            false,
-            tokenInstance.contract.address,
-            collateralInstance.contract.address,
-        );
+      const collateralArtifacts = await ethers.getContractFactory("Mock_dai");
+      collateralInstance = await collateralArtifacts.deploy(
+        tokenSettings.dai.name,
+        tokenSettings.dai.symbol,
+        tokenSettings.dai.decimals
+      );
+      
+      const curveTestArtifacts = await ethers.getContractFactory("curve_test");
+      curveTestInstance = await curveTestArtifacts.deploy(
+        tokenInstance.address,
+        collateralInstance.address
+      );
     });
 
     describe('Curve pre-init tests', () => {
@@ -70,26 +79,13 @@ describe("🧮 Curve Calculations Tests", () => {
                 pre_mint_sequence.whole
             );
             // Testing expected behaviour
-            assert.equal(
-                buyCost.toString(),
-                initialCost.toString(),
-                "Init and mint function providing different costs"
-            );
-            assert.equal(
-                buyCost.toString(),
-                primFuncAtPreMint.toString(),
-                "Mint cost and primitive function return different results"
-            );
-            assert.equal(
-                initialCost.toString(),
-                pre_mint_sequence.dai.cost,
-                "Cost for curve init is incorrect"
-            );
-            assert.equal(
-                primFuncAtZero.toString(),
-                0,
-                "Prim function for 0 supply is non-zero"
-            );
+            expect(buyCost.toString()).to.equal(initialCost.toString());
+
+            expect(buyCost.toString()).to.equal(primFuncAtPreMint.toString());
+
+            expect(initialCost.toString()).to.equal(pre_mint_sequence.dai.cost);
+
+            expect(primFuncAtZero.toString()).to.equal("0");
         });
         /**
          * Testing that the price per token is never 0, even before the curve has
@@ -99,16 +95,9 @@ describe("🧮 Curve Calculations Tests", () => {
             // Getting the price of one token before the curve has been initialized
             let spotPriceAtStart = await curveTestInstance.spotPrice(0);
             // Testing expected behaviour
-            assert.notEqual(
-                spotPriceAtStart.toString(),
-                0,
-                "FATAL Price per token is 0"
-            );
-            assert.equal(
-                spotPriceAtStart.toString(),
-                1,
-                "Price per token is not expected"
-            );
+            expect(spotPriceAtStart.toString()).to.not.equal("0");
+
+            expect(spotPriceAtStart.toString()).to.equal("1");
         });
     });
 
@@ -120,13 +109,13 @@ describe("🧮 Curve Calculations Tests", () => {
             //------------------------------------------------------------------
 
             // Minting the pre-mint tokens to the pre-mint owner
-            await tokenInstance.from(owner).mint(
-                investor.signer.address,
+            await tokenInstance.connect(owner).mint(
+                investor.address,
                 pre_mint_sequence.whole
             )
             // Adding the curve as a minter on the token
-            await tokenInstance.from(owner).addMinter(
-                curveTestInstance.contract.address
+            await tokenInstance.connect(owner).addMinter(
+                curveTestInstance.address
             );
             // Getting the required collateral for the pre-mint tokens
             let requiredCollateral = await curveTestInstance.requiredCollateral(
@@ -135,16 +124,16 @@ describe("🧮 Curve Calculations Tests", () => {
             // This is the amount of required collateral for the curve
             // 1 230 468 . 599 843 763 228 132 556
             // The owner is minting the required number of tokens in collateral (DAI)
-            await collateralInstance.from(owner).mint(
+            await collateralInstance.connect(owner).mint(
                 requiredCollateral
             );
             // Approving the curve as a spender of the required amount
-            await collateralInstance.from(owner).approve(
-                curveTestInstance.contract.address,
+            await collateralInstance.connect(owner).approve(
+                curveTestInstance.address,
                 requiredCollateral
             );
             // Initialising the curve 
-            await curveTestInstance.from(owner).init();
+            await curveTestInstance.connect(owner).init();
         });
         /**
          * Testing the helper value is expected
@@ -153,11 +142,7 @@ describe("🧮 Curve Calculations Tests", () => {
             // Getting the helper
             let helper = await curveTestInstance.helper(pre_mint_sequence.whole);
             // Testing expected behaviour
-            assert.equal(
-                helper.toString(),
-                test_settings.helper_value,
-                "Helper value unexpected"
-            );
+            expect(helper.toString()).to.equal(test_settings.helper_value);
         });
         /**
          * Testing that after the curve has pre-minted that the price for each
@@ -180,26 +165,13 @@ describe("🧮 Curve Calculations Tests", () => {
             // Getting the price for one token at current supply
             let spotPricePostMint = await curveTestInstance.spotPrice(pre_mint_sequence.whole);
             // Testing expected behaviour
-            assert.equal(
-                buyCost.toString(),
-                test_settings.dai.buyCost,
-                "Mint cost incorrect"
-            );
-            assert.equal(
-                primFuncAtZero.toString(),
-                pre_mint_sequence.dai.cost,
-                "Prim function for pre-buy incorrect"
-            );
-            assert.equal(
-                primFuncAtPreMint.toString(),
-                test_settings.dai.curve_coll_at_prem,
-                "Prim function for post-buy incorrect"
-            );
-            assert.equal(
-                spotPricePostMint.toString(),
-                test_settings.dai.one_cost,
-                "Start cost per token incorrect"
-            );
+            expect(buyCost.toString()).to.equal(test_settings.dai.buyCost);
+
+            expect(primFuncAtZero.toString()).to.equal(pre_mint_sequence.dai.cost);
+
+            expect(primFuncAtPreMint.toString()).to.equal(test_settings.dai.curve_coll_at_prem);
+
+            expect(spotPricePostMint.toString()).to.equal(test_settings.dai.one_cost);
         });
         /**
          * Testing that after the curves pre-mint the sell price for each token
@@ -209,14 +181,14 @@ describe("🧮 Curve Calculations Tests", () => {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveTestInstance.buyPrice(test_settings.bzz.buyAmount);
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveTestInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveTestInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             // Mints tokens
-            await curveTestInstance.from(user).mint(
+            await curveTestInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
@@ -227,11 +199,7 @@ describe("🧮 Curve Calculations Tests", () => {
                 currentSupply,
             );
             // Testing expected behaviour
-            assert.equal(
-                sellRewardWithdraw[0].toString(),
-                test_settings.dai.buyCost,
-                "Sell reward is incorrect"
-            );
+            expect(sellRewardWithdraw[0].toString()).to.equal(test_settings.dai.buyCost);
         });
     });
 });

@@ -2,7 +2,7 @@ pragma solidity 0.5.0;
 
 import "./Curve.sol";
 
-contract Curve_test is Curve {
+contract curve_test is Curve {
     constructor(address _token, address _collateralToken)
         public
         Curve(_token, _collateralToken)

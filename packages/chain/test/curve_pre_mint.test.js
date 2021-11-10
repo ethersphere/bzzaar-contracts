@@ -1,6 +1,8 @@
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert  } = require("chai");
 const { 
     ethers,
-    etherlime,
     curve_abi,
     token_abi,
     mock_dai_abi,
@@ -10,10 +12,10 @@ const {
  } = require("./settings.test.js");
 
  describe('🍃 Curve pre-mint tests', () => {
-    let investor = accounts[0];
-    let owner = accounts[1];
-    let user = accounts[2];
-    let user_two = accounts[3];
+    let investor;
+    let owner;
+    let user;
+    let user_two;
 
     let deployer;
     let tokenInstance;
@@ -21,30 +23,31 @@ const {
     let collateralInstance;
 
     beforeEach(async () => {
-        deployer = new etherlime.EtherlimeGanacheDeployer(owner.secretKey);
+        const accounts = await ethers.getSigners();
+        owner = accounts[0];
+        investor = accounts[1];
+        user = accounts[2];
+        user_two = accounts[3];
 
-        tokenInstance = await deployer.deploy(
-            token_abi,
-            false,
+        const tokenArtifacts = await ethers.getContractFactory("Token");
+        tokenInstance = await tokenArtifacts.deploy(
             tokenSettings.bzz.name,
             tokenSettings.bzz.symbol,
             tokenSettings.bzz.decimals,
             tokenSettings.bzz.cap
         );
 
-        collateralInstance = await deployer.deploy(
-            mock_dai_abi,
-            false,
+        const collateralArtifacts = await ethers.getContractFactory("Mock_dai");
+        collateralInstance = await collateralArtifacts.deploy(
             tokenSettings.dai.name,
             tokenSettings.dai.symbol,
             tokenSettings.dai.decimals
         );
 
-        curveInstance = await deployer.deploy(
-            curve_abi,
-            false,
-            tokenInstance.contract.address,
-            collateralInstance.contract.address,
+        const curveArtifacts = await ethers.getContractFactory("Curve");
+        curveInstance = await curveArtifacts.deploy(
+            tokenInstance.address,
+            collateralInstance.address
         );
     });
 
@@ -54,22 +57,20 @@ const {
          * having minted anything (i.e a 0 `totalSupply()`).
          */
         it("Can't set up curve with less than expected pre-mint", async() => {
-            let isOwnerMinterBefore = await tokenInstance.isMinter(owner.signer.address);
+            let isOwnerMinterBefore = await tokenInstance.isMinter(owner.address);
             let isCurveMinterBefore = await tokenInstance.isMinter(
-                curveInstance.contract.address
+                curveInstance.address
             );
             let isCurveActiveBefore = await curveInstance.isCurveActive();
             // Adding the curve as a minter on the token
-            await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
-            let isCurveMinter = await tokenInstance.isMinter(curveInstance.contract.address);
+            await tokenInstance.connect(owner).addMinter(curveInstance.address);
+            let isCurveMinter = await tokenInstance.isMinter(curveInstance.address);
             let requiredCollateral = await curveInstance.requiredCollateral(
                 pre_mint_sequence.whole
             );
             // Initialising the curve (will fail without pre-mint)
-            await assert.revertWith(
-                curveInstance.from(user).init(),
-                test_settings.errors.curve_requires_pre_mint
-            );
+            await expect(curveInstance.connect(user).init())
+                .to.be.revertedWith(test_settings.errors.curve_requires_pre_mint);
             let isCurveActiveAfter = await curveInstance.isCurveActive();
             // Testing expected behaviour
             assert.equal(
@@ -109,37 +110,37 @@ const {
          */
         it("Curve set up with pre-mint (exact)", async() => {
             let investorBalanceBeforeMint = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Minting the pre-mint tokens to the pre-mint owner
-            await tokenInstance.from(owner).mint(
-                investor.signer.address,
+            await tokenInstance.connect(owner).mint(
+                investor.address,
                 pre_mint_sequence.whole
             );
             let investorBalanceAfterMint = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Adding the curve as a minter on the token
-            await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+            await tokenInstance.connect(owner).addMinter(curveInstance.address);
             // Getting the required collateral for the pre-mint tokens
             let requiredCollateral = await curveInstance.requiredCollateral(
                 pre_mint_sequence.whole
             );
             
-            let ownerBalanceBefore = await collateralInstance.balanceOf(owner.signer.address);
+            let ownerBalanceBefore = await collateralInstance.balanceOf(owner.address);
             // The owner is minting the required number of tokens in collateral (DAI)
-            await collateralInstance.from(owner).mint(
+            await collateralInstance.connect(owner).mint(
                 requiredCollateral
             );
-            let ownerBalanceAfter = await collateralInstance.balanceOf(owner.signer.address);
+            let ownerBalanceAfter = await collateralInstance.balanceOf(owner.address);
             // Approving the curve as a spender of the required amount
-            await collateralInstance.from(owner).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(owner).approve(
+                curveInstance.address,
                 requiredCollateral
             );
             let isCurveActiveBefore = await curveInstance.isCurveActive();
             // Initialising the curve 
-            await curveInstance.from(owner).init();
+            await curveInstance.connect(owner).init();
             let isCurveActiveAfter = await curveInstance.isCurveActive();
             let startingPrice = await curveInstance.buyPrice(
                 test_settings.bzz.one
@@ -192,36 +193,36 @@ const {
          */
         it("Curve set up with pre-mint (above expected)", async() => {
             let investorBalanceBeforeMint = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Minting the pre-mint tokens to the pre-mint owner
-            await tokenInstance.from(owner).mint(
-                investor.signer.address,
+            await tokenInstance.connect(owner).mint(
+                investor.address,
                 pre_mint_sequence.above_expected
             );
             let investorBalanceAfterMint = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Adding the curve as a minter on the token
-            await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+            await tokenInstance.connect(owner).addMinter(curveInstance.address);
             // Getting the required collateral for the pre-mint tokens
             let requiredCollateral = await curveInstance.requiredCollateral(
                 pre_mint_sequence.above_expected
             );
-            let ownerBalanceBefore = await collateralInstance.balanceOf(owner.signer.address);
+            let ownerBalanceBefore = await collateralInstance.balanceOf(owner.address);
             // The owner is minting the required number of tokens in collateral (DAI)
-            await collateralInstance.from(owner).mint(
+            await collateralInstance.connect(owner).mint(
                 requiredCollateral
             );
-            let ownerBalanceAfter = await collateralInstance.balanceOf(owner.signer.address);
+            let ownerBalanceAfter = await collateralInstance.balanceOf(owner.address);
             // Approving the curve as a spender of the required amount
-            await collateralInstance.from(owner).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(owner).approve(
+                curveInstance.address,
                 requiredCollateral
             );
             let isCurveActiveBefore = await curveInstance.isCurveActive();
             // Initialising the curve 
-            await curveInstance.from(owner).init();
+            await curveInstance.connect(owner).init();
             let isCurveActiveAfter = await curveInstance.isCurveActive();
             let startingPrice = await curveInstance.buyPrice(
                 test_settings.bzz.one
@@ -275,62 +276,62 @@ const {
             // Setting up curve
             //------------------------------------------------------------------
                 // Minting the pre-mint tokens to the pre-mint owner
-                await tokenInstance.from(owner).mint(
-                    investor.signer.address,
+                await tokenInstance.connect(owner).mint(
+                    investor.address,
                     pre_mint_sequence.whole
                 );
                 // Adding the curve as a minter on the token
-                await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+                await tokenInstance.connect(owner).addMinter(curveInstance.address);
                 // Getting the required collateral for the pre-mint tokens
                 let requiredCollateral = await curveInstance.requiredCollateral(
                     pre_mint_sequence.whole
                 );
                 // The owner is minting the required number of tokens in collateral (DAI)
-                await collateralInstance.from(owner).mint(
+                await collateralInstance.connect(owner).mint(
                     requiredCollateral
                 );
                 // Approving the curve as a spender of the required amount
-                await collateralInstance.from(owner).approve(
-                    curveInstance.contract.address,
+                await collateralInstance.connect(owner).approve(
+                    curveInstance.address,
                     requiredCollateral
                 );
                 // Initialising the curve 
-                await curveInstance.from(owner).init();
+                await curveInstance.connect(owner).init();
             //------------------------------------------------------------------
             // Minting testing
             //------------------------------------------------------------------
             let userCollateralBalanceBefore = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Getting buy cost for buying `buyAmount` (see settings.test.js)
             let buyCost = await curveInstance.buyPrice(
                 test_settings.bzz.buyAmount
             );
             // User minting collateral tokens
-            await collateralInstance.from(user).mint(
+            await collateralInstance.connect(user).mint(
                 buyCost
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // User approves the curve as a spender of the collateral token (DAI)
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             let curveAllowance = await collateralInstance.allowance(
-                user.signer.address,
-                curveInstance.contract.address
+                user.address,
+                curveInstance.address
             );
-            let userTokenBalanceBefore = await tokenInstance.balanceOf(user.signer.address);
+            let userTokenBalanceBefore = await tokenInstance.balanceOf(user.address);
             // User mints tokens from the curve
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
-            let userTokenBalanceAfter = await tokenInstance.balanceOf(user.signer.address);
+            let userTokenBalanceAfter = await tokenInstance.balanceOf(user.address);
             let userCollateralBalanceAfterMint = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -371,27 +372,27 @@ const {
             // Setting up curve
             //------------------------------------------------------------------
                 // Minting the pre-mint tokens to the pre-mint owner
-                await tokenInstance.from(owner).mint(
-                    investor.signer.address,
+                await tokenInstance.connect(owner).mint(
+                    investor.address,
                     pre_mint_sequence.whole
                 );
                 // Adding the curve as a minter on the token
-                await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+                await tokenInstance.connect(owner).addMinter(curveInstance.address);
                 // Getting the required collateral for the pre-mint tokens
                 let requiredCollateral = await curveInstance.requiredCollateral(
                     pre_mint_sequence.whole
                 );
                 // The owner is minting the required number of tokens in collateral (DAI)
-                await collateralInstance.from(owner).mint(
+                await collateralInstance.connect(owner).mint(
                     requiredCollateral
                 );
                 // Approving the curve as a spender of the required amount
-                await collateralInstance.from(owner).approve(
-                    curveInstance.contract.address,
+                await collateralInstance.connect(owner).approve(
+                    curveInstance.address,
                     requiredCollateral
                 );
                 // Initialising the curve 
-                await curveInstance.from(owner).init();
+                await curveInstance.connect(owner).init();
             //------------------------------------------------------------------
             // Minting
             //------------------------------------------------------------------
@@ -400,50 +401,50 @@ const {
                     test_settings.bzz.buyAmount
                 );
                 // User minting collateral tokens
-                await collateralInstance.from(user).mint(
+                await collateralInstance.connect(user).mint(
                     buyCost
                 );
                 // User approves the curve as a spender of the collateral token (DAI)
-                await collateralInstance.from(user).approve(
-                    curveInstance.contract.address,
+                await collateralInstance.connect(user).approve(
+                    curveInstance.address,
                     buyCost
                 );
                 // User mints tokens from the curve
-                await curveInstance.from(user).mint(
+                await curveInstance.connect(user).mint(
                     test_settings.bzz.buyAmount,
                     buyCost
                 );
                 let userCollateralBalanceBefore = await collateralInstance.balanceOf(
-                    user.signer.address
+                    user.address
                 );
                 let userTokenBalanceBefore = await tokenInstance.balanceOf(
-                    user.signer.address
+                    user.address
                 );
             //------------------------------------------------------------------
             // Burning testing 
             //------------------------------------------------------------------
             let sellReward = await curveInstance.sellReward(test_settings.bzz.sellAmount);
             // Approving the curve to spend the sell amount of tokens
-            await tokenInstance.from(user).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(user).approve(
+                curveInstance.address,
                 test_settings.bzz.buyAmount
             );
             let balanceOfCurve = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // User burns half the tokens they bought
-            await curveInstance.from(user).redeem(
+            await curveInstance.connect(user).redeem(
                 test_settings.bzz.sellAmount,
                 sellReward
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let balanceOfCurveAfter = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -482,32 +483,30 @@ const {
          */
         it("Cannot double initialize", async() => {
             // Minting the pre-mint tokens to the pre-mint owner
-            await tokenInstance.from(owner).mint(
-                investor.signer.address,
+            await tokenInstance.connect(owner).mint(
+                investor.address,
                 pre_mint_sequence.whole
             );
             // Adding the curve as a minter on the token
-            await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+            await tokenInstance.connect(owner).addMinter(curveInstance.address);
             // Getting the required collateral for the pre-mint tokens
             let requiredCollateral = await curveInstance.requiredCollateral(
                 pre_mint_sequence.whole
             );
             // The owner is minting the required number of tokens in collateral (DAI)
-            await collateralInstance.from(owner).mint(
+            await collateralInstance.connect(owner).mint(
                 requiredCollateral
             );
             // Approving the curve as a spender of the required amount
-            await collateralInstance.from(owner).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(owner).approve(
+                curveInstance.address,
                 requiredCollateral
             );
             // Initialising the curve 
-            await curveInstance.from(owner).init();
+            await curveInstance.connect(owner).init();
             // Testing expected behaviour
-            await assert.revertWith(
-                curveInstance.from(owner).init(),
-                test_settings.errors.init
-            );
+            await expect(curveInstance.connect(owner).init())
+                .to.be.revertedWith(test_settings.errors.init);
        });
        /**
         * Tests that the curve cannot be initialized if the curve has 
@@ -515,8 +514,8 @@ const {
         */
        it("Cannot initialize if curve is not minter", async() => {
             // Minting the pre-mint tokens to the pre-mint owner
-            await tokenInstance.from(owner).mint(
-                investor.signer.address,
+            await tokenInstance.connect(owner).mint(
+                investor.address,
                 pre_mint_sequence.whole
             );
             // Getting the required collateral for the pre-mint tokens
@@ -524,19 +523,17 @@ const {
                 pre_mint_sequence.whole
             );
             // The owner is minting the required number of tokens in collateral (DAI)
-            await collateralInstance.from(owner).mint(
+            await collateralInstance.connect(owner).mint(
                 requiredCollateral
             );
             // Approving the curve as a spender of the required amount
-            await collateralInstance.from(owner).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(owner).approve(
+                curveInstance.address,
                 requiredCollateral
             );
             // Testing expected behaviour
-            await assert.revertWith(
-                curveInstance.from(owner).init(),
-                test_settings.errors.minter_approval
-            );
+            await expect(curveInstance.connect(owner).init())
+                .to.be.revertedWith(test_settings.errors.minter_approval);
         });
     });
 });

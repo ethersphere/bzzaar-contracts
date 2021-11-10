@@ -1,6 +1,8 @@
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert } = require("chai");
 const { 
     ethers,
-    etherlime,
     curve_abi,
     token_abi,
     mock_dai_abi,
@@ -10,10 +12,10 @@ const {
  } = require("./settings.test.js");
 
  describe('📈 Curve tests', () => {
-    let investor = accounts[0];
-    let owner = accounts[1];
-    let user = accounts[2];
-    let user_two = accounts[3];
+    let investor;
+    let owner;
+    let user;
+    let user_two;
 
     let deployer;
     let tokenInstance;
@@ -21,30 +23,31 @@ const {
     let collateralInstance;
 
     beforeEach(async () => {
-        deployer = new etherlime.EtherlimeGanacheDeployer(owner.secretKey);
+        const accounts = await ethers.getSigners();
+        owner = accounts[0];
+        investor = accounts[1];
+        user = accounts[2];
+        user_two = accounts[3];
 
-        tokenInstance = await deployer.deploy(
-            token_abi,
-            false,
+        const tokenArtifacts = await ethers.getContractFactory("Token");
+        tokenInstance = await tokenArtifacts.deploy(
             tokenSettings.bzz.name,
             tokenSettings.bzz.symbol,
             tokenSettings.bzz.decimals,
             tokenSettings.bzz.cap
         );
 
-        collateralInstance = await deployer.deploy(
-            mock_dai_abi,
-            false,
+        const collateralArtifacts = await ethers.getContractFactory("Mock_dai");
+        collateralInstance = await collateralArtifacts.deploy(
             tokenSettings.dai.name,
             tokenSettings.dai.symbol,
             tokenSettings.dai.decimals
         );
 
-        curveInstance = await deployer.deploy(
-            curve_abi,
-            false,
-            tokenInstance.contract.address,
-            collateralInstance.contract.address,
+        const curveArtifacts = await ethers.getContractFactory("Curve");
+        curveInstance = await curveArtifacts.deploy(
+            tokenInstance.address,
+            collateralInstance.address
         );
 
         //------------------------------------------------------------------
@@ -53,12 +56,12 @@ const {
         //------------------------------------------------------------------
 
         // Minting the pre-mint tokens to the pre-mint owner
-        await tokenInstance.from(owner).mint(
-            investor.signer.address,
+        await tokenInstance.connect(owner).mint(
+            investor.address,
             pre_mint_sequence.whole
         )
         // Adding the curve as a minter on the token
-        await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+        await tokenInstance.connect(owner).addMinter(curveInstance.address);
         // Getting the required collateral for the pre-mint tokens
         let requiredCollateral = await curveInstance.requiredCollateral(
             pre_mint_sequence.whole
@@ -66,16 +69,16 @@ const {
         // This is the amount of required collateral for the curve
         // 1 230 468 . 599 843 763 228 132 556
         // The owner is minting the required number of tokens in collateral (DAI)
-        await collateralInstance.from(owner).mint(
+        await collateralInstance.connect(owner).mint(
             requiredCollateral
         );
         // Approving the curve as a spender of the required amount
-        await collateralInstance.from(owner).approve(
-            curveInstance.contract.address,
+        await collateralInstance.connect(owner).approve(
+            curveInstance.address,
             requiredCollateral
         );
         // Initialising the curve 
-        await curveInstance.from(owner).init();
+        await curveInstance.connect(owner).init();
     });
 
     describe('Curve pre-mint collateral tests', () => {
@@ -84,27 +87,27 @@ const {
          */
         it("Pre-mint can sell down curve (partial)", async() => {
             let investorCollateralBalance = await collateralInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             let investorTokenBalance = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Approving the curve as a spender of tokens
-            await tokenInstance.from(investor).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(investor).approve(
+                curveInstance.address,
                 test_settings.bzz.sellAmount
             );
             let rewardForBurn = await curveInstance.sellReward(test_settings.bzz.sellAmount);
             // Selling the tokens against the curve
-            await curveInstance.from(investor).redeem(
+            await curveInstance.connect(investor).redeem(
                 test_settings.bzz.sellAmount,
                 rewardForBurn
             );
             let investorCollateralBalanceAfter = await collateralInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             let investorTokenBalanceAfter = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -140,27 +143,27 @@ const {
          */
         it("Pre-mint can sell down curve (almost whole pre-mint)", async() => {
             let investorCollateralBalance = await collateralInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             let investorTokenBalance = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Approving the curve as a spender of tokens
-            await tokenInstance.from(investor).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(investor).approve(
+                curveInstance.address,
                 pre_mint_sequence.almost_whole
             );
             let rewardForBurn = await curveInstance.sellReward(test_settings.bzz.sellAmount);
             // Selling the tokens against the curve
-            await curveInstance.from(investor).redeem(
+            await curveInstance.connect(investor).redeem(
                 pre_mint_sequence.almost_whole,
                 rewardForBurn
             );
             let investorCollateralBalanceAfter = await collateralInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             let investorTokenBalanceAfter = await tokenInstance.balanceOf(
-                investor.signer.address
+                investor.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -195,41 +198,41 @@ const {
          */
         it("Price can slide back to pre-mint supply", async() => {
             // Approving the curve as a spender of tokens
-            await tokenInstance.from(investor).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(investor).approve(
+                curveInstance.address,
                 test_settings.bzz.sellAmount
             );
             let rewardForBurn = await curveInstance.sellReward(test_settings.bzz.sellAmount);
             // Selling the tokens against the curve
-            await curveInstance.from(investor).redeem(
+            await curveInstance.connect(investor).redeem(
                 test_settings.bzz.sellAmount,
                 rewardForBurn
             );
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Buying the tokens at the expected price
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -272,36 +275,36 @@ const {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             //------------------------------------------------------------------
             // User 2 creates slippage
             //------------------------------------------------------------------
             let userTwoTokenBalance = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user_two).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user_two).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user_two).mint(buyCost);
+            await collateralInstance.connect(user_two).mint(buyCost);
             let userTwoCollateralBalance = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Mints tokens
-            await curveInstance.from(user_two).mint(
+            await curveInstance.connect(user_two).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
@@ -309,24 +312,22 @@ const {
             // User mint fails
             //------------------------------------------------------------------
             // Buying the tokens at the expected price
-            await assert.revertWith(
-                curveInstance.from(user).mint(
-                    test_settings.bzz.buyAmount,
-                    buyCost
-                ),
-                test_settings.errors.max_spend
-            );
+            await expect(curveInstance.connect(user).mint(
+                test_settings.bzz.buyAmount,
+                buyCost
+            )).to.be.revertedWith(test_settings.errors.max_spend);
+
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTwoCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             let userTwoTokenBalanceAfter = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -386,20 +387,20 @@ const {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Mints tokens
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
@@ -408,20 +409,20 @@ const {
             //------------------------------------------------------------------
             buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             let userTwoTokenBalance = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user_two).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user_two).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user_two).mint(buyCost);
+            await collateralInstance.connect(user_two).mint(buyCost);
             let userTwoCollateralBalance = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Mints tokens
-            await curveInstance.from(user_two).mint(
+            await curveInstance.connect(user_two).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
@@ -432,46 +433,41 @@ const {
                 test_settings.bzz.sellAmount
             );
             // Approving the curve as a spender of tokens
-            await tokenInstance.from(user_two).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(user_two).approve(
+                curveInstance.address,
                 test_settings.bzz.sellAmount
             );
             // User 2 sells tokens
-            await curveInstance.from(user_two).redeem(
+            await curveInstance.connect(user_two).redeem(
                 test_settings.bzz.sellAmount,
                 rewardForSell
             );
             let userTwoTokenBalanceAfter = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             let userTwoCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             //------------------------------------------------------------------
             // User sell fails
             //------------------------------------------------------------------
             // Approving the curve as a spender of tokens
-            await tokenInstance.from(user).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(user).approve(
+                curveInstance.address,
                 test_settings.bzz.sellAmount
             );
             // Selling the tokens at the expected price
-            await assert.revertWith(
-                curveInstance.from(user).redeem(
-                    test_settings.bzz.sellAmount,
-                    rewardForSell
-                ),
-                test_settings.errors.min_reward
-            );
+            await expect(curveInstance.connect(user).redeem(
+                test_settings.bzz.sellAmount,
+                rewardForSell
+            )).to.be.revertedWith(test_settings.errors.min_reward);
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Testing expected behaviour
-            console.log();
-
             assert.equal(
                 rewardForSell.toString(),
                 test_settings.dai.sellReward_doubleMint,
@@ -545,34 +541,34 @@ const {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let curveCollateralBalance = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Mints tokens
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let curveCollateralBalanceAfter = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -613,47 +609,47 @@ const {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let curveCollateralBalance = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userReceiverTokenBalance = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             let userReceiverCollateralBalance = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Mints tokens
-            await curveInstance.from(user).mintTo(
+            await curveInstance.connect(user).mintTo(
                 test_settings.bzz.buyAmount,
                 buyCost,
-                user_two.signer.address
+                user_two.address
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let curveCollateralBalanceAfter = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             let userReceiverTokenBalanceAfter = await tokenInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             let userReceiverCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user_two.signer.address
+                user_two.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -731,51 +727,51 @@ const {
             // Getting the buy cost for 1000 tokens
             let buyCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             // Mints tokens
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
             let userCollateralBalance = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let curveCollateralBalance = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             //------------------------------------------------------------------
             // Burning testing 
             //------------------------------------------------------------------
             let sellReward = await curveInstance.sellReward(test_settings.bzz.sellAmount);
             // Approving the curve to spend the sell amount of tokens
-            await tokenInstance.from(user).approve(
-                curveInstance.contract.address,
+            await tokenInstance.connect(user).approve(
+                curveInstance.address,
                 test_settings.bzz.buyAmount
             );
             // User burns half the tokens they bought
-            await curveInstance.from(user).redeem(
+            await curveInstance.connect(user).redeem(
                 test_settings.bzz.sellAmount,
                 sellReward
             );
             let balanceOfCurve = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             let userCollateralBalanceAfter = await collateralInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let userTokenBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             let balanceOfCurveAfter = await collateralInstance.balanceOf(
-                curveInstance.contract.address
+                curveInstance.address
             );
             // Testing expected behaviour
             assert.equal(
@@ -839,7 +835,7 @@ const {
             // Testing expected behaviour
             assert.equal(
                 tokenAddress,
-                tokenInstance.contract.address,
+                tokenInstance.address,
                 "Bonded token address incorrect"
             );
         });
@@ -851,7 +847,7 @@ const {
             // Testing expected behaviour
             assert.equal(
                 tokenAddress,
-                collateralInstance.contract.address,
+                collateralInstance.address,
                 "Collateral token address incorrect"
             );
         });
@@ -864,7 +860,7 @@ const {
         it("Can shut down the curve", async() => {
             let isActive = await curveInstance.isCurveActive();
             // Admin emergency shut down
-            await curveInstance.from(owner).shutDown();
+            await curveInstance.connect(owner).shutDown();
             let isActiveAfter = await curveInstance.isCurveActive();
             // Testing expected behaviour
             assert.equal(
@@ -883,10 +879,8 @@ const {
          */
         it("Non owner cannot shut down the curve", async() => {
             // Non-admin cannot access function
-            await assert.revertWith(
-                curveInstance.from(user).shutDown(),
-                test_settings.errors.owner
-            );
+            await expect(curveInstance.connect(user).shutDown())
+                .to.be.revertedWith(test_settings.errors.owner);
         });
         /**
          * Tests that once the curve is shut down non of the blocked functions can
@@ -894,34 +888,22 @@ const {
          */
         it("Once shut, blocked functions cannot be accessed", async() => {
             // Admin emergency shut down
-            await curveInstance.from(owner).shutDown();
+            await curveInstance.connect(owner).shutDown();
             // Testing expected behaviour
-            await assert.revertWith(
-                curveInstance.from(user).buyPrice(
-                    test_settings.bzz.buyAmount
-                ),
-                test_settings.errors.inactive
-            );
-            await assert.revertWith(
-                curveInstance.from(user).sellReward(
-                    test_settings.bzz.buyAmount
-                ),
-                test_settings.errors.inactive
-            );
-            await assert.revertWith(
-                curveInstance.from(user).mint(
-                    test_settings.bzz.buyAmount,
-                    test_settings.dai.buyCost
-                ),
-                test_settings.errors.inactive
-            );
-            await assert.revertWith(
-                curveInstance.from(user).redeem(
-                    test_settings.bzz.sellAmount,
-                    test_settings.dai.sellReward
-                ),
-                test_settings.errors.inactive
-            );
+            await expect(curveInstance.connect(user).buyPrice(
+                test_settings.bzz.buyAmount
+            )).to.be.revertedWith(test_settings.errors.inactive);
+            await expect(curveInstance.connect(user).sellReward(
+                test_settings.bzz.buyAmount
+            )).to.be.revertedWith(test_settings.errors.inactive);
+            await expect(curveInstance.connect(user).mint(
+                test_settings.bzz.buyAmount,
+                test_settings.dai.buyCost
+            )).to.be.revertedWith(test_settings.errors.inactive);
+            await expect(curveInstance.connect(user).redeem(
+                test_settings.bzz.sellAmount,
+                test_settings.dai.sellReward
+            )).to.be.revertedWith(test_settings.errors.inactive);
         });
     });
 
@@ -934,7 +916,7 @@ const {
             // Testing expected behaviour
             assert.equal(
                 curveOwner,
-                owner.signer.address,
+                owner.address,
                 "Owner of curve is incorrect"
             );
         });
@@ -943,19 +925,19 @@ const {
          */
         it("Ownership can be transferred correctly", async() => {
             let curveOwner = await curveInstance.owner();
-            await curveInstance.from(owner).transferOwnership(
-                investor.signer.address
+            await curveInstance.connect(owner).transferOwnership(
+                investor.address
             );
             let curveOwnerAfter = await curveInstance.owner();
             // Testing expected behaviour
             assert.equal(
                 curveOwner,
-                owner.signer.address,
+                owner.address,
                 "Owner of curve is incorrect"
             );
             assert.equal(
                 curveOwnerAfter,
-                investor.signer.address,
+                investor.address,
                 "Owner of curve is incorrect after transfer"
             );
         });
@@ -973,81 +955,75 @@ const {
                 test_settings.bzz.buyAmount
             );
             // Approving the curve as a spender of collateral
-            await collateralInstance.from(user).approve(
-                curveInstance.contract.address,
+            await collateralInstance.connect(user).approve(
+                curveInstance.address,
                 buyCost
             );
             // Minting the collateral tokens for the user
-            await collateralInstance.from(user).mint(buyCost);
+            await collateralInstance.connect(user).mint(buyCost);
             // Mints tokens
-            await curveInstance.from(user).mint(
+            await curveInstance.connect(user).mint(
                 test_settings.bzz.buyAmount,
                 buyCost
             );
             // Checks that a non minter cannot burn tokens
-            await assert.revertWith(
-                tokenInstance.from(user).burn(
-                    test_settings.bzz.sellAmount
-                ),
-                test_settings.errors.minter_is_minter
-            );
+            await expect(tokenInstance.connect(user).burn(
+                test_settings.bzz.sellAmount
+            )).to.be.revertedWith(test_settings.errors.minter_is_minter);
             // Approve a spender 
-            await tokenInstance.from(user).approve(
-                user_two.signer.address,
+            await tokenInstance.connect(user).approve(
+                user_two.address,
                 buyCost
             );
             // Checks that a non minter cannot burnFrom tokens
-            await assert.revertWith(
-                tokenInstance.from(user).burnFrom(
-                    user_two.signer.address,
-                    test_settings.bzz.sellAmount
-                ),
-                test_settings.errors.minter_is_minter
-            );
+            await expect(tokenInstance.connect(user).burnFrom(
+                user_two.address,
+                test_settings.bzz.sellAmount
+            )).to.be.revertedWith(test_settings.errors.minter_is_minter);
         });
         /**
          * Tests that if a user with a minter role can burn and burnFrom.
          */
         it("Bonded tokens can only be burnt by minter", async() => {
             // Investor sends tokens to owner
-            await tokenInstance.from(investor).transfer(
-                owner.signer.address,
+            await tokenInstance.connect(investor).transfer(
+                owner.address,
                 test_settings.bzz.buyAmount
             );
             // Investor sends tokens to user
-            await tokenInstance.from(investor).transfer(
-                user.signer.address,
+            await tokenInstance.connect(investor).transfer(
+                user.address,
                 test_settings.bzz.sellAmount
             );
             // Getting the owners balance
             let ownerBalance = await tokenInstance.balanceOf(
-                owner.signer.address
+                owner.address
             );
             // Getting the owners balance
             let userBalance = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
             // Checks that a minter can burn tokens
-            await tokenInstance.from(owner).burn(
+            await tokenInstance.connect(owner).burn(
                 test_settings.bzz.sellAmount
             );
             // Getting the owners balance after burn
             let ownerBalanceAfter = await tokenInstance.balanceOf(
-                owner.signer.address
+                owner.address
             );
             // User approves the owner as a spender
-            await tokenInstance.from(user).approve(
-                owner.signer.address,
+            await tokenInstance.connect(user).approve(
+                owner.address,
                 test_settings.bzz.sellAmount
             );
             // Checks that a minter can burnFrom tokens
-            await tokenInstance.from(owner).burnFrom(
-                user.signer.address,
+            await tokenInstance.connect(owner).burnFrom(
+                user.address,
                 test_settings.bzz.sellAmount
             );
             // Getting the owners balance
             let userBalanceAfter = await tokenInstance.balanceOf(
-                user.signer.address
+                user.address
             );
 
             // Testing expected behaviour
@@ -1080,23 +1056,17 @@ const {
          * price. Buy price is used in mint. 
          */
         it("Reverts on buy price if amount too large", async () => {
-            await assert.revertWith(
-                curveInstance.buyPrice(
-                    test_settings.large.max_uint256
-                ),
-                test_settings.errors.safe_math_add
-            );
+            await expect(curveInstance.buyPrice(
+                test_settings.large.max_uint256
+            )).to.be.revertedWith(test_settings.errors.safe_math_add);
         });
         /**
          * Tests that buy Price reverts if supply past max
          */
         it("Reverts on buy price if amount at max supply", async () => {
-            await assert.revertWith(
-                curveInstance.buyPrice(
-                    test_settings.large.max_supply
-                ),
-                test_settings.errors.safe_math_mul
-            );
+            await expect(curveInstance.buyPrice(
+                test_settings.large.max_supply
+            )).to.be.revertedWith(test_settings.errors.safe_math_mul);
         });
         /**
          * Tests that buy Price doesn't revert under max
@@ -1144,35 +1114,26 @@ const {
          * reward. Sell reward is used in redeem.
          */
         it("Reverts on sell reward if amount too large", async () => {
-            await assert.revertWith(
-                curveInstance.sellReward(
-                    test_settings.large.max_uint256
-                ),
-                test_settings.errors.safe_math_sub
-            );
+            await expect(curveInstance.sellReward(
+                test_settings.large.max_uint256
+            )).to.be.revertedWith(test_settings.errors.safe_math_sub);
         });
         /**
          * Tests that sell reward reverts if supply past max
          */
         it("Reverts on sell reward if amount at max supply", async () => {
-            await assert.revertWith(
-                curveInstance.sellReward(
-                    test_settings.large.max_supply
-                ),
-                test_settings.errors.safe_math_sub
-            );
+            await expect(curveInstance.sellReward(
+                test_settings.large.max_supply
+            )).to.be.revertedWith(test_settings.errors.safe_math_sub);
         });
         /**
          * Tests that 0 will revert (and not underflow) on sell reward.
          * Sell reward is used in redeem.
          */
         it("Reverts on sell reward if amount 0", async () => {
-            await assert.revertWith(
-                curveInstance.sellReward(
-                    0
-                ),
-                test_settings.errors.safe_math_div_zero
-            );
+            await expect(curveInstance.sellReward(
+                0
+            )).to.be.revertedWith(test_settings.errors.safe_math_div_zero);
         });
         /**
          * Tests that buy price of 1 decimal token is not 0

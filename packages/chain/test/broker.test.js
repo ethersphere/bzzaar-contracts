@@ -1,6 +1,8 @@
+require("@nomiclabs/hardhat-waffle");
+const hre = require("hardhat");
+const { expect, assert } = require("chai");
 const {
   ethers,
-  etherlime,
   curve_abi,
   token_abi,
   mock_dai_abi,
@@ -10,12 +12,13 @@ const {
   tokenSettings,
   test_settings,
 } = require("./settings.test.js");
+const { network } = require("hardhat");
 
 describe("🤝 Broker tests", () => {
-  let investor = accounts[0];
-  let owner = accounts[1];
-  let user = accounts[2];
-  let user_two = accounts[3];
+  let investor;
+  let owner;
+  let user;
+  let user_two;
 
   let deployer;
   let tokenInstance;
@@ -25,35 +28,34 @@ describe("🤝 Broker tests", () => {
   let mockRouterInstance;
   let mockWethInstance;
 
-  const provider = new ethers.providers.JsonRpcProvider(
-    "http://localhost:8545"
-  );
+  const provider = new ethers.providers.JsonRpcProvider();
 
   beforeEach(async () => {
-    deployer = new etherlime.EtherlimeGanacheDeployer(owner.secretKey);
+    const accounts = await ethers.getSigners();
+    owner = accounts[0];
+    investor = accounts[1];
+    user = accounts[2];
+    user_two = accounts[3];
 
-    tokenInstance = await deployer.deploy(
-      token_abi,
-      false,
+    const tokenArtifacts = await ethers.getContractFactory("Token");
+    tokenInstance = await tokenArtifacts.deploy(
       tokenSettings.bzz.name,
       tokenSettings.bzz.symbol,
       tokenSettings.bzz.decimals,
       tokenSettings.bzz.cap
     );
 
-    collateralInstance = await deployer.deploy(
-      mock_dai_abi,
-      false,
+    const collateralArtifacts = await ethers.getContractFactory("Mock_dai");
+    collateralInstance = await collateralArtifacts.deploy(
       tokenSettings.dai.name,
       tokenSettings.dai.symbol,
       tokenSettings.dai.decimals
     );
 
-    curveInstance = await deployer.deploy(
-      curve_abi,
-      false,
-      tokenInstance.contract.address,
-      collateralInstance.contract.address
+    const curveArtifacts = await ethers.getContractFactory("Curve");
+    curveInstance = await curveArtifacts.deploy(
+      tokenInstance.address,
+      collateralInstance.address
     );
 
     //------------------------------------------------------------------
@@ -63,10 +65,10 @@ describe("🤝 Broker tests", () => {
 
     // Minting the pre-mint tokens to the pre-mint owner
     await tokenInstance
-      .from(owner)
-      .mint(investor.signer.address, pre_mint_sequence.whole);
+      .connect(owner)
+      .mint(investor.getAddress(), pre_mint_sequence.whole);
     // Adding the curve as a minter on the token
-    await tokenInstance.from(owner).addMinter(curveInstance.contract.address);
+    await tokenInstance.connect(owner).addMinter(curveInstance.address);
     // Getting the required collateral for the pre-mint tokens
     let requiredCollateral = await curveInstance.requiredCollateral(
       pre_mint_sequence.whole
@@ -74,50 +76,56 @@ describe("🤝 Broker tests", () => {
     // This is the amount of required collateral for the curve
     // 1 230 468 . 599 843 763 228 132 556
     // The owner is minting the required number of tokens in collateral (DAI)
-    await collateralInstance.from(owner).mint(requiredCollateral);
+    await collateralInstance.connect(owner).mint(requiredCollateral);
     // Approving the curve as a spender of the required amount
     await collateralInstance
-      .from(owner)
-      .approve(curveInstance.contract.address, requiredCollateral);
+      .connect(owner)
+      .approve(curveInstance.address, requiredCollateral);
     // Initialising the curve
-    await curveInstance.from(owner).init();
+    await curveInstance.connect(owner).init();
 
     //------------------------------------------------------------------
     // Deploying the eth broker + mock router + mock WETH
     //------------------------------------------------------------------
 
-    mockWethInstance = await deployer.deploy(
-      mock_dai_abi,
-      false,
+    const mockWethArtifacts = await ethers.getContractFactory("Mock_dai")
+    mockWethInstance = await mockWethArtifacts.deploy(
       tokenSettings.weth.name,
       tokenSettings.weth.symbol,
       tokenSettings.weth.decimals
     );
 
-    mockRouterInstance = await deployer.deploy(
-      mock_router_abi,
-      false,
-      mockWethInstance.contract.address,
-      { value: test_settings.eth_broker.eth.seed_eth_amount }
+    const mockRouterArtifacts = await ethers.getContractFactory("Mock_router");
+    mockRouterInstance = await mockRouterArtifacts.deploy(
+      mockWethInstance.address,
     );
+    // priv key for account 0 of Hardhat
+    const ownerWallet = new ethers.Wallet(
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      provider
+    );
+    await ownerWallet.sendTransaction({
+      to: mockRouterInstance.address,
+      value: test_settings.eth_broker.eth.seed_eth_amount
+    });
+
     // Minting DAI to seed the router
     await collateralInstance
-      .from(user)
+      .connect(user)
       .mint(test_settings.eth_broker.eth.seed_eth_amount);
     // Sending seed DAI to router
     await collateralInstance
-      .from(user)
+      .connect(user)
       .transfer(
-        mockRouterInstance.contract.address,
+        mockRouterInstance.address,
         test_settings.eth_broker.eth.seed_eth_amount
       );
 
-    brokerInstance = await deployer.deploy(
-      eth_broker_abi,
-      false,
-      curveInstance.contract.address,
-      collateralInstance.contract.address,
-      mockRouterInstance.contract.address
+    const brokerArtifacts = await ethers.getContractFactory("Eth_broker");
+    brokerInstance = await brokerArtifacts.deploy(
+      curveInstance.address,
+      collateralInstance.address,
+      mockRouterInstance.address
     );
   });
 
@@ -129,7 +137,7 @@ describe("🤝 Broker tests", () => {
     it("Gets Amounts In returns correct values", async () => {
       let ethValue = await mockRouterInstance.getAmountsIn(
         test_settings.eth_broker.dai.almost_one_eth,
-        [mockWethInstance.contract.address, collateralInstance.contract.address]
+        [mockWethInstance.address, collateralInstance.address]
       );
 
       // Testing expected behaviour
@@ -159,26 +167,26 @@ describe("🤝 Broker tests", () => {
     it("Swap ETH for exact tokens (DAI) test", async () => {
       // let balanceOfUserInEthBefore = await ???
       let balanceOfUserDaiBefore = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
       // Getting the current time
       let time = await brokerInstance.getTime();
       // Swapping ETH for an exact amount of tokens (DAI)
       await mockRouterInstance
-        .from(user)
+        .connect(user)
         .swapETHForExactTokens(
           test_settings.eth_broker.dai.almost_one_eth,
           [
-            mockWethInstance.contract.address,
-            collateralInstance.contract.address,
+            mockWethInstance.address,
+            collateralInstance.address,
           ],
-          user.signer.address,
+          user.address,
           time,
           { value: "0x" + test_settings.eth_broker.eth.almost_one_eth }
         );
 
       let balanceOfUserDaiAfter = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
 
       // Testing expected behaviour
@@ -199,62 +207,66 @@ describe("🤝 Broker tests", () => {
      */
     it("Swap exact tokens (DAI) for ETH test", async () => {
       let mockRouterEthBalance = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
 
       await collateralInstance
-        .from(user)
+        .connect(user)
         .mint(test_settings.eth_broker.dai.almost_one_eth);
       let balanceOfUserDAI = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
 
       // approving router as spender
       await collateralInstance
-        .from(user)
+        .connect(user)
         .approve(
-          mockRouterInstance.contract.address,
+          mockRouterInstance.address,
           test_settings.eth_broker.dai.almost_one_eth
         );
       // Getting the current time
       let time = await brokerInstance.getTime();
       // Swapping the exact DAI amount for ETH
       await mockRouterInstance
-        .from(user)
+        .connect(user)
         .swapExactTokensForETH(
           test_settings.eth_broker.dai.almost_one_eth,
           test_settings.eth_broker.eth.almost_one_eth,
           [
-            collateralInstance.contract.address,
-            mockWethInstance.contract.address,
+            collateralInstance.address,
+            mockWethInstance.address,
           ],
-          user.signer.address,
+          user.address,
           time + 100
         );
 
       let mockRouterEthBalanceAfter = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let balanceOfUserDaiAfter = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
 
       // Testing expected behaviour
+      // expect(mockRouterEthBalance.toString()).to.equal(test_settings.eth_broker.eth.seed_eth_amount.toString());
       assert.equal(
         mockRouterEthBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Eth balance of broker is incorrect"
       );
+      // expect(mockRouterEthBalanceAfter.toString()).to.equal(test_settings.eth_broker.eth.mock_router_eth_balance_after_swap.toString());
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_swap.toString(),
         "Eth balance of broker is incorrect after swap"
       );
+      // expect(balanceOfUserDAI.toString()).to.equal(test_settings.eth_broker.dai.almost_one_eth);
       assert.equal(
         balanceOfUserDAI.toString(),
         test_settings.eth_broker.dai.almost_one_eth,
         "User started with incorrect DAI balance"
       );
+      // expect(balanceOfUserDaiAfter.toString()).to.equal("0");
       assert.equal(
         balanceOfUserDaiAfter.toString(),
         0,
@@ -271,6 +283,7 @@ describe("🤝 Broker tests", () => {
     it("buy price expected", async () => {
       let buyPrice = await brokerInstance.buyPrice(test_settings.bzz.buyAmount);
 
+      // expect(buyPrice.toString()).to.equal(test_settings.eth_broker.eth.buy_price);
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
@@ -287,6 +300,7 @@ describe("🤝 Broker tests", () => {
       );
 
       // Testing expected behaviour
+      // expect(sellRewardAmount.toString()).to.equal(test_settings.eth_broker.eth.sell_reward);
       assert.equal(
         sellRewardAmount.toString(),
         test_settings.eth_broker.eth.sell_reward,
@@ -303,6 +317,7 @@ describe("🤝 Broker tests", () => {
       );
 
       // Testing expected behaviour
+      // expect(sellRewardAmount.toString()).to.equal(test_settings.eth_broker.eth.almost_one_eth);
       assert.equal(
         sellRewardAmount.toString(),
         test_settings.eth_broker.eth.almost_one_eth,
@@ -319,24 +334,28 @@ describe("🤝 Broker tests", () => {
       let hardCodedWethAddress = "0xacDdD0dBa07959Be810f6cd29E41b127b29E4A8a";
 
       // Testing expected behaviour
+      // expect(buyPath[0]).to.equal(hardCodedWethAddress);
       assert.equal(
         buyPath[0],
         hardCodedWethAddress,
         "WETH address in trade route incorrect"
       );
+      // expect(sellPath[1]).to.equal(hardCodedWethAddress);
       assert.equal(
         sellPath[1],
         hardCodedWethAddress,
         "WETH address in trade route incorrect"
       );
+      // expect(buyPath[1]).to.equal(collateralInstance.address);
       assert.equal(
         buyPath[1],
-        collateralInstance.contract.address,
+        collateralInstance.address,
         "DAI address in trade route incorrect"
       );
+      // expect(sellPath[0]).to.equal(collateralInstance.address);
       assert.equal(
         sellPath[0],
-        collateralInstance.contract.address,
+        collateralInstance.address,
         "DAI address in trade route incorrect"
       );
     });
@@ -346,6 +365,7 @@ describe("🤝 Broker tests", () => {
     it("get time works as expected", async () => {
       let time = await brokerInstance.getTime();
 
+      // expect(time.toString()).to.not.equal("0");
       assert.notEqual(time.toString(), 0, "Time has not be correctly relayed");
     });
   });
@@ -355,17 +375,17 @@ describe("🤝 Broker tests", () => {
      * The max dai spend slippage check is honoured
      */
     it("mint slippage check", async () => {
+
+      await collateralInstance.connect(owner).mint(ethers.utils.parseUnits("1000000"));
+
       let time = await brokerInstance.getTime();
       // Testing expected behaviour
-      await assert.revertWith(
-        brokerInstance.mint(
-          test_settings.bzz.buyAmount,
-          test_settings.dai.sellReward,
-          time,
-          { value: "0x" + test_settings.eth_broker.eth.buy_price }
-        ),
-        test_settings.errors.dai_slippage
-      );
+      await expect(brokerInstance.connect(owner).mint(
+        test_settings.bzz.buyAmount,
+        test_settings.dai.sellReward,
+        time,
+        { value: "0x" + test_settings.eth_broker.eth.buy_price }
+      )).to.be.revertedWith(test_settings.errors.dai_slippage)
     });
     /**
      * Ensures that all the various involved parties balances change as
@@ -377,30 +397,30 @@ describe("🤝 Broker tests", () => {
       let time = await brokerInstance.getTime();
 
       let userDaiBalance = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userBzzBalance = await tokenInstance.balanceOf(user.signer.address);
-      let userEthBalance = await provider.getBalance(user.signer.address);
+      let userBzzBalance = await tokenInstance.balanceOf(user.address);
+      let userEthBalance = await provider.getBalance(user.address);
       let brokerDaiBalance = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalance = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalance = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalance = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalance = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalance = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalance = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupply = await tokenInstance.totalSupply();
       let daiCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
@@ -409,38 +429,38 @@ describe("🤝 Broker tests", () => {
 
       // Minting 1000 BZZ for 0.5611 ETH
       await brokerInstance
-        .from(user)
+        .connect(user)
         .mint(test_settings.bzz.buyAmount, test_settings.dai.buyCost, time, {
           value: test_settings.eth_broker.eth.buy_price_encoded,
         });
 
       let userDaiBalanceAfter = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
       let userBzzBalanceAfter = await tokenInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userEthBalanceAfter = await provider.getBalance(user.signer.address);
+      let userEthBalanceAfter = await provider.getBalance(user.address);
       let brokerDaiBalanceAfter = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalanceAfter = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalanceAfter = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalanceAfter = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalanceAfter = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalanceAfter = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalanceAfter = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupplyAfter = await tokenInstance.totalSupply();
 
@@ -450,44 +470,54 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.eth.seed_eth_amount,
         "Mock router ETH balance incorrect"
       );
+      
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_mint,
         "Mock router ETH balance incorrect after mint"
       );
+      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance does not change with mint"
       );
+      
       assert.equal(
         daiCost.toString(),
         test_settings.dai.buyCost,
         "DAI cost for token amount unexpected"
       );
+      
       assert.equal(
         ethCost.toString(),
         test_settings.eth_broker.eth.buy_price,
         "ETH cost for token amount unexpected"
       );
+      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
         "ETH (raw) cost for token amount unexpected"
       );
       // user balances changes as expected with mint
+      
       assert.equal(userDaiBalance.toString(), 0, "User starts without DAI");
+      
       assert.equal(userBzzBalance.toString(), 0, "User starts without BZZ");
+      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
+      
       assert.equal(
         userDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
+      
       assert.equal(
         userBzzBalanceAfter.toString(),
         test_settings.bzz.buyAmount,
@@ -495,26 +525,31 @@ describe("🤝 Broker tests", () => {
       );
       // broker balance remains 0 on all assets
       assert.equal(0, brokerDaiBalance.toString(), "broker dai balance non 0");
+      
       assert.equal(
         brokerBzzBalance.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance non 0"
       );
+      
       assert.equal(
         brokerEthBalance.toString(),
         brokerDaiBalance.toString(),
         "broker eth balance non 0"
       );
+      
       assert.equal(
         brokerDaiBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker dai balance after non 0"
       );
+      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance after non 0"
       );
+      
       assert.equal(
         brokerEthBalanceAfter.toString(),
         brokerDaiBalance.toString(),
@@ -526,6 +561,7 @@ describe("🤝 Broker tests", () => {
         pre_mint_sequence.dai.cost,
         "Curve DAI is not as expected before mint"
       );
+      
       assert.equal(
         curveDaiBalanceAfter.toString(),
         test_settings.dai.curve_collateral_after_buy,
@@ -537,6 +573,7 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "initial supply of bzz token unexpected"
       );
+      
       assert.equal(
         tokenSupplyAfter.toString(),
         test_settings.eth_broker.bzz.after_buy,
@@ -548,17 +585,20 @@ describe("🤝 Broker tests", () => {
         mockRouterBzzBalanceAfter.toString(),
         "Mock router BZZ balance incorrect (non 0)"
       );
+      
       assert.equal(
         mockRouterDaiBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount,
         "mock router starts with incorrect dai balance"
       );
+      
       assert.equal(
         mockRouterDaiBalanceAfter.toString(),
         test_settings.eth_broker.dai.mock_router_dai_balance_after_mint,
         "mock router dai balance after buy incorrect"
       );
     });
+
     /**
      * Ensures that all the various involved parties balances change as
      * expected. The following balances: ETH, DAI, BZZ are checked on the
@@ -569,35 +609,35 @@ describe("🤝 Broker tests", () => {
       let time = await brokerInstance.getTime();
 
       let userDaiBalance = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userBzzBalance = await tokenInstance.balanceOf(user.signer.address);
-      let userEthBalance = await provider.getBalance(user.signer.address);
+      let userBzzBalance = await tokenInstance.balanceOf(user.address);
+      let userEthBalance = await provider.getBalance(user.address);
       let userReceiverDaiBalance = await collateralInstance.balanceOf(
-        user_two.signer.address
+        user_two.address
       );
-      let userReceiverBzzBalance = await tokenInstance.balanceOf(user_two.signer.address);
-      let userReceiverEthBalance = await provider.getBalance(user_two.signer.address);
+      let userReceiverBzzBalance = await tokenInstance.balanceOf(user_two.address);
+      let userReceiverEthBalance = await provider.getBalance(user_two.address);
       let brokerDaiBalance = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalance = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalance = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalance = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalance = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalance = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalance = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupply = await tokenInstance.totalSupply();
       let daiCost = await curveInstance.buyPrice(test_settings.bzz.buyAmount);
@@ -605,46 +645,46 @@ describe("🤝 Broker tests", () => {
       let buyPrice = await brokerInstance.buyPrice(test_settings.bzz.buyAmount);
 
       // Minting 1000 BZZ for 0.5611 ETH
-      await brokerInstance.from(user).mintTo(
+      await brokerInstance.connect(user).mintTo(
         test_settings.bzz.buyAmount, 
         test_settings.dai.buyCost, 
         time, 
-        user_two.signer.address,
+        user_two.address,
         { value: test_settings.eth_broker.eth.buy_price_encoded, }
       );
 
       let userDaiBalanceAfter = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
       let userBzzBalanceAfter = await tokenInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userEthBalanceAfter = await provider.getBalance(user.signer.address);
+      let userEthBalanceAfter = await provider.getBalance(user.address);
 
       let userReceiverDaiBalanceAfter = await collateralInstance.balanceOf(
-        user_two.signer.address
+        user_two.address
       );
-      let userReceiverBzzBalanceAfter = await tokenInstance.balanceOf(user_two.signer.address);
+      let userReceiverBzzBalanceAfter = await tokenInstance.balanceOf(user_two.address);
       let brokerDaiBalanceAfter = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalanceAfter = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalanceAfter = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalanceAfter = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalanceAfter = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalanceAfter = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalanceAfter = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupplyAfter = await tokenInstance.totalSupply();
 
@@ -654,26 +694,31 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.eth.seed_eth_amount,
         "Mock router ETH balance incorrect"
       );
+      
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_mint,
         "Mock router ETH balance incorrect after mint"
       );
+      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance does not change with mint"
       );
+      
       assert.equal(
         daiCost.toString(),
         test_settings.dai.buyCost,
         "DAI cost for token amount unexpected"
       );
+      
       assert.equal(
         ethCost.toString(),
         test_settings.eth_broker.eth.buy_price,
         "ETH cost for token amount unexpected"
       );
+      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
@@ -681,17 +726,21 @@ describe("🤝 Broker tests", () => {
       );
       // user balances changes as expected with mint
       assert.equal(userDaiBalance.toString(), 0, "User starts without DAI");
+      
       assert.equal(userBzzBalance.toString(), 0, "User starts without BZZ");
+      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
+      
       assert.equal(
         userDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
+      
       assert.equal(
         userBzzBalanceAfter.toString(),
         0,
@@ -699,17 +748,21 @@ describe("🤝 Broker tests", () => {
       );
       // user receiver balances changes as expected with mint
       assert.equal(userReceiverDaiBalance.toString(), 0, "User starts without DAI");
+      
       assert.equal(userReceiverBzzBalance.toString(), 0, "User starts without BZZ");
+      
       assert.notEqual(
         userReceiverEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
+      
       assert.equal(
         userReceiverDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
+      
       assert.equal(
         userReceiverBzzBalanceAfter.toString(),
         test_settings.bzz.buyAmount.toString(),
@@ -717,26 +770,31 @@ describe("🤝 Broker tests", () => {
       );
       // broker balance remains 0 on all assets
       assert.equal(0, brokerDaiBalance.toString(), "broker dai balance non 0");
+      
       assert.equal(
         brokerBzzBalance.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance non 0"
       );
+      
       assert.equal(
         brokerEthBalance.toString(),
         brokerDaiBalance.toString(),
         "broker eth balance non 0"
       );
+      
       assert.equal(
         brokerDaiBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker dai balance after non 0"
       );
+      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance after non 0"
       );
+      
       assert.equal(
         brokerEthBalanceAfter.toString(),
         brokerDaiBalance.toString(),
@@ -748,6 +806,7 @@ describe("🤝 Broker tests", () => {
         pre_mint_sequence.dai.cost,
         "Curve DAI is not as expected before mint"
       );
+      
       assert.equal(
         curveDaiBalanceAfter.toString(),
         test_settings.dai.curve_collateral_after_buy,
@@ -759,6 +818,7 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "initial supply of bzz token unexpected"
       );
+      
       assert.equal(
         tokenSupplyAfter.toString(),
         test_settings.eth_broker.bzz.after_buy,
@@ -770,11 +830,13 @@ describe("🤝 Broker tests", () => {
         mockRouterBzzBalanceAfter.toString(),
         "Mock router BZZ balance incorrect (non 0)"
       );
+
       assert.equal(
         mockRouterDaiBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount,
         "mock router starts with incorrect dai balance"
       );
+      
       assert.equal(
         mockRouterDaiBalanceAfter.toString(),
         test_settings.eth_broker.dai.mock_router_dai_balance_after_mint,
@@ -787,16 +849,13 @@ describe("🤝 Broker tests", () => {
     it("burn fails without approval", async () => {
       let time = await brokerInstance.getTime();
 
-      await assert.revertWith(
-        brokerInstance
-          .from(user)
-          .redeem(
-            test_settings.bzz.buyAmount,
-            test_settings.dai.sellReward,
-            time
-          ),
-        test_settings.errors.transfer_failed
-      );
+      await expect(brokerInstance
+        .connect(user)
+        .redeem(
+          test_settings.bzz.buyAmount,
+          test_settings.dai.sellReward,
+          time
+        )).to.be.revertedWith(test_settings.errors.transfer_failed);
     });
     /**
      * Ensures that the burn function works as expected and all involved
@@ -806,45 +865,45 @@ describe("🤝 Broker tests", () => {
     it("burn balance checks", async () => {
       let time = await brokerInstance.getTime();
 
-      // User recives BZZ
+      // User receives BZZ
       await tokenInstance
-        .from(investor)
-        .transfer(user.signer.address, test_settings.bzz.buyAmount);
+        .connect(investor)
+        .transfer(user.address, test_settings.bzz.buyAmount);
 
       // approving the broker as a spender
       await tokenInstance
-        .from(user)
-        .approve(brokerInstance.contract.address, test_settings.bzz.buyAmount);
+        .connect(user)
+        .approve(brokerInstance.address, test_settings.bzz.buyAmount);
 
-      let allowanceOfbroker = await tokenInstance.allowance(
-        user.signer.address,
-        brokerInstance.contract.address
+      let allowanceOfBroker = await tokenInstance.allowance(
+        user.address,
+        brokerInstance.address
       );
       let userDaiBalance = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userBzzBalance = await tokenInstance.balanceOf(user.signer.address);
-      let userEthBalance = await provider.getBalance(user.signer.address);
+      let userBzzBalance = await tokenInstance.balanceOf(user.address);
+      let userEthBalance = await provider.getBalance(user.address);
       let brokerDaiBalance = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalance = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalance = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalance = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalance = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalance = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalance = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupply = await tokenInstance.totalSupply();
 
@@ -855,55 +914,57 @@ describe("🤝 Broker tests", () => {
       );
 
       // Minting 1000 BZZ for 0.5611 ETH
-      await brokerInstance.from(user).redeem(
+      await brokerInstance.connect(user).redeem(
         test_settings.bzz.buyAmount,
         10,
         time
       );
 
       let userDaiBalanceAfter = await collateralInstance.balanceOf(
-        user.signer.address
+        user.address
       );
       let userBzzBalanceAfter = await tokenInstance.balanceOf(
-        user.signer.address
+        user.address
       );
-      let userEthBalanceAfter = await provider.getBalance(user.signer.address);
+      let userEthBalanceAfter = await provider.getBalance(user.address);
       let brokerDaiBalanceAfter = await collateralInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerBzzBalanceAfter = await tokenInstance.balanceOf(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let brokerEthBalanceAfter = await provider.getBalance(
-        brokerInstance.contract.address
+        brokerInstance.address
       );
       let curveDaiBalanceAfter = await collateralInstance.balanceOf(
-        curveInstance.contract.address
+        curveInstance.address
       );
       let mockRouterDaiBalanceAfter = await collateralInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterBzzBalanceAfter = await tokenInstance.balanceOf(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let mockRouterEthBalanceAfter = await provider.getBalance(
-        mockRouterInstance.contract.address
+        mockRouterInstance.address
       );
       let tokenSupplyAfter = await tokenInstance.totalSupply();
 
       // Testing expected behaviour
       assert.equal(
-        allowanceOfbroker.toString(),
+        allowanceOfBroker.toString(),
         test_settings.bzz.buyAmount.toString(),
         "broker allowance incorrect"
       );
       // User balance in various currencies expected
       assert.equal(userDaiBalance.toString(), 0, "User DAI balance incorrect");
+
       assert.equal(
         userBzzBalance.toString(),
         test_settings.bzz.buyAmount.toString(),
         "User BZZ balance incorrect"
       );
+
       assert.notEqual(
         userEthBalance.toString(),
         0,
@@ -915,11 +976,13 @@ describe("🤝 Broker tests", () => {
         0,
         "broker incorrectly has a balance in DAI"
       );
+      
       assert.equal(
         brokerBzzBalance.toString(),
         0,
         "broker incorrectly has a balance in BZZ"
       );
+      
       assert.equal(
         brokerEthBalance.toString(),
         0,
@@ -937,11 +1000,13 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Mock router has incorrect DAI balance"
       );
+
       assert.equal(
         mockRouterBzzBalance.toString(),
         0,
         "Mock router has incorrect BZZ balance"
       );
+      
       assert.equal(
         mockRouterEthBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
@@ -953,16 +1018,19 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "BZZ current supply incorrect"
       );
+      
       assert.equal(
         daiCost.toString(),
         test_settings.eth_broker.dai.buy_cost,
         "DAI cost for token amount unexpected"
       );
+      
       assert.equal(
         ethCost.toString(),
         test_settings.eth_broker.eth.sell_reward,
         "ETH cost for token amount unexpected"
       );
+      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.sell_reward,
@@ -974,11 +1042,13 @@ describe("🤝 Broker tests", () => {
         0,
         "User incorrectly has left over DAI after burn"
       );
+      
       assert.equal(
         userBzzBalanceAfter.toString(),
         0,
         "User incorrectly has left over BZZ after burn"
       );
+      
       assert.notEqual(
         userEthBalanceAfter.toString(),
         userEthBalance.toString(),
@@ -990,11 +1060,13 @@ describe("🤝 Broker tests", () => {
         0,
         "broker incorrectly has a balance in DAI"
       );
+      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         0,
         "broker incorrectly has a balance in BZZ"
       );
+      
       assert.equal(
         brokerEthBalanceAfter.toString(),
         0,
@@ -1012,11 +1084,13 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.dai.mock_router_dai_balance_after_burn.toString(),
         "Mock router has incorrect DAI balance"
       );
+      
       assert.equal(
         mockRouterBzzBalanceAfter.toString(),
         0,
         "Mock router has incorrect BZZ balance"
       );
+
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_burn.toString(),
@@ -1031,3 +1105,4 @@ describe("🤝 Broker tests", () => {
     });
   });
 });
+

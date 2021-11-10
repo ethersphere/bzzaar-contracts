@@ -51,9 +51,9 @@ contract Mock_router is I_router_02 {
         uint256 deadline
     ) external payable returns (uint256[] memory amounts) {
         // Getting the eth amount from the internal calculation 
-        uint256 ethAmount = this.getAmountsIn(amountOut, path)[0];
+        amounts = this.getAmountsIn(amountOut, path);
         // Ensureing the user has sent enough ETH for their desired amountOut
-        require(msg.value >= ethAmount, "Insufficient Eth sent");
+        require(msg.value >= amounts[0], "Insufficient Eth sent");
         require(
             deadline != 0,
             "Invalid deadline"
@@ -78,10 +78,10 @@ contract Mock_router is I_router_02 {
             address(this),
             amountIn
         );
-        uint256 ethForDai = this.getAmountsIn(amountIn, path)[0];
+        amounts = this.getAmountsIn(amountIn, path);
         // Checks rates user will get within min range
         require(
-            ethForDai >= amountOutMin,
+            amounts[0] >= amountOutMin,
             "Receivable ETH less than min"
         );
         require(
@@ -93,8 +93,10 @@ contract Mock_router is I_router_02 {
             "Invalid deadline"
         );
         // Sending user ETH amount
-        to.call.value(ethForDai)("");
+        to.call.value(amounts[0])("");
 
         return(amounts);
     }
+
+    function() external payable {}
 }
