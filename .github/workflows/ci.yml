@@ -14,6 +14,9 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/chain
 
     steps:
       - uses: actions/checkout@v2
@@ -23,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '10'
+          node-version: '14'
 
       # Restore the yarn cache
       - uses: c-hive/gha-yarn-cache@v1
@@ -32,18 +35,18 @@ jobs:
         run: yarn install
 
       - name: Build
-        run: yarn build
+        run: yarn hardhat compile
 
       - name: Test
-        run: yarn start > /dev/null & yarn test
+        run: yarn hardhat test
 
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            build/Curve.json
-            build/Eth_broker.json
-            build/Token.json
+            artifacts/contracts/Curve.sol/Curve.json
+            artifacts/contracts/Eth_broker.sol/Eth_broker.json
+            artifacts/contracts/Token.sol/Token.json
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
