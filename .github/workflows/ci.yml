@@ -50,3 +50,4 @@ jobs:
             artifacts/contracts/Token.sol/Token.json
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
