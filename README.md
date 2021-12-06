@@ -53,7 +53,7 @@ Please ensure that you do not have anything else running on port 8545 or this wi
 Once the dev chain is up and running you can run the following command to run the tests:
 
 ```
-yarn test
+yarn test:chain
 ```
 # Deployment
 
