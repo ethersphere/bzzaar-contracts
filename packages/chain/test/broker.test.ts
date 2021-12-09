@@ -1,37 +1,33 @@
-require("@nomiclabs/hardhat-waffle");
-const hre = require("hardhat");
-const { expect, assert } = require("chai");
-const {
-  ethers,
-  curve_abi,
-  token_abi,
-  mock_dai_abi,
-  eth_broker_abi,
-  mock_router_abi,
+import { formatUnits } from "@ethersproject/units";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { expect, assert } from "chai";
+import { Contract } from "ethers";
+import { ethers, waffle } from "hardhat";
+import {
   pre_mint_sequence,
   tokenSettings,
   test_settings,
-} = require("./settings.test.js");
-const { network } = require("hardhat");
+} from "./settings.test";
+
 
 describe("🤝 Broker tests", () => {
-  let investor;
-  let owner;
-  let user;
-  let user_two;
+  let investor: SignerWithAddress;
+  let owner: SignerWithAddress;
+  let user: SignerWithAddress;
+  let user_two: SignerWithAddress;
 
-  let deployer;
-  let tokenInstance;
-  let curveInstance;
-  let collateralInstance;
-  let brokerInstance;
-  let mockRouterInstance;
-  let mockWethInstance;
+  let tokenInstance: Contract;
+  let curveInstance: Contract;
+  let collateralInstance: Contract;
+  let brokerInstance: Contract;
+  let mockRouterInstance: Contract;
+  let mockWethInstance: Contract;
 
-  const provider = new ethers.providers.JsonRpcProvider();
+  const provider = waffle.provider;
 
   beforeEach(async () => {
-    const accounts = await ethers.getSigners();
+    await provider.ready
+  const accounts = await ethers.getSigners();
     owner = accounts[0];
     investor = accounts[1];
     user = accounts[2];
@@ -51,7 +47,6 @@ describe("🤝 Broker tests", () => {
       tokenSettings.dai.symbol,
       tokenSettings.dai.decimals
     );
-
     const curveArtifacts = await ethers.getContractFactory("Curve");
     curveInstance = await curveArtifacts.deploy(
       tokenInstance.address,
@@ -99,12 +94,7 @@ describe("🤝 Broker tests", () => {
     mockRouterInstance = await mockRouterArtifacts.deploy(
       mockWethInstance.address,
     );
-    // priv key for account 0 of Hardhat
-    const ownerWallet = new ethers.Wallet(
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-      provider
-    );
-    await ownerWallet.sendTransaction({
+    await owner.sendTransaction({
       to: mockRouterInstance.address,
       value: test_settings.eth_broker.eth.seed_eth_amount
     });
@@ -248,25 +238,21 @@ describe("🤝 Broker tests", () => {
       );
 
       // Testing expected behaviour
-      // expect(mockRouterEthBalance.toString()).to.equal(test_settings.eth_broker.eth.seed_eth_amount.toString());
       assert.equal(
         mockRouterEthBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Eth balance of broker is incorrect"
       );
-      // expect(mockRouterEthBalanceAfter.toString()).to.equal(test_settings.eth_broker.eth.mock_router_eth_balance_after_swap.toString());
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_swap.toString(),
         "Eth balance of broker is incorrect after swap"
       );
-      // expect(balanceOfUserDAI.toString()).to.equal(test_settings.eth_broker.dai.almost_one_eth);
       assert.equal(
         balanceOfUserDAI.toString(),
         test_settings.eth_broker.dai.almost_one_eth,
         "User started with incorrect DAI balance"
       );
-      // expect(balanceOfUserDaiAfter.toString()).to.equal("0");
       assert.equal(
         balanceOfUserDaiAfter.toString(),
         0,
@@ -283,7 +269,6 @@ describe("🤝 Broker tests", () => {
     it("buy price expected", async () => {
       let buyPrice = await brokerInstance.buyPrice(test_settings.bzz.buyAmount);
 
-      // expect(buyPrice.toString()).to.equal(test_settings.eth_broker.eth.buy_price);
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
@@ -300,7 +285,6 @@ describe("🤝 Broker tests", () => {
       );
 
       // Testing expected behaviour
-      // expect(sellRewardAmount.toString()).to.equal(test_settings.eth_broker.eth.sell_reward);
       assert.equal(
         sellRewardAmount.toString(),
         test_settings.eth_broker.eth.sell_reward,
@@ -317,7 +301,6 @@ describe("🤝 Broker tests", () => {
       );
 
       // Testing expected behaviour
-      // expect(sellRewardAmount.toString()).to.equal(test_settings.eth_broker.eth.almost_one_eth);
       assert.equal(
         sellRewardAmount.toString(),
         test_settings.eth_broker.eth.almost_one_eth,
@@ -334,25 +317,21 @@ describe("🤝 Broker tests", () => {
       let hardCodedWethAddress = "0xacDdD0dBa07959Be810f6cd29E41b127b29E4A8a";
 
       // Testing expected behaviour
-      // expect(buyPath[0]).to.equal(hardCodedWethAddress);
       assert.equal(
         buyPath[0],
         hardCodedWethAddress,
         "WETH address in trade route incorrect"
       );
-      // expect(sellPath[1]).to.equal(hardCodedWethAddress);
       assert.equal(
         sellPath[1],
         hardCodedWethAddress,
         "WETH address in trade route incorrect"
       );
-      // expect(buyPath[1]).to.equal(collateralInstance.address);
       assert.equal(
         buyPath[1],
         collateralInstance.address,
         "DAI address in trade route incorrect"
       );
-      // expect(sellPath[0]).to.equal(collateralInstance.address);
       assert.equal(
         sellPath[0],
         collateralInstance.address,
@@ -365,7 +344,6 @@ describe("🤝 Broker tests", () => {
     it("get time works as expected", async () => {
       let time = await brokerInstance.getTime();
 
-      // expect(time.toString()).to.not.equal("0");
       assert.notEqual(time.toString(), 0, "Time has not be correctly relayed");
     });
   });
@@ -467,57 +445,47 @@ describe("🤝 Broker tests", () => {
       // Testing expected behaviour
       assert.equal(
         mockRouterEthBalance.toString(),
-        test_settings.eth_broker.eth.seed_eth_amount,
+        test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Mock router ETH balance incorrect"
       );
-      
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_mint,
         "Mock router ETH balance incorrect after mint"
       );
-      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance does not change with mint"
       );
-      
       assert.equal(
         daiCost.toString(),
         test_settings.dai.buyCost,
         "DAI cost for token amount unexpected"
       );
-      
       assert.equal(
         ethCost.toString(),
         test_settings.eth_broker.eth.buy_price,
         "ETH cost for token amount unexpected"
       );
-      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
         "ETH (raw) cost for token amount unexpected"
       );
       // user balances changes as expected with mint
-      
       assert.equal(userDaiBalance.toString(), 0, "User starts without DAI");
-      
       assert.equal(userBzzBalance.toString(), 0, "User starts without BZZ");
-      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
-      
       assert.equal(
         userDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
-      
       assert.equal(
         userBzzBalanceAfter.toString(),
         test_settings.bzz.buyAmount,
@@ -525,31 +493,26 @@ describe("🤝 Broker tests", () => {
       );
       // broker balance remains 0 on all assets
       assert.equal(0, brokerDaiBalance.toString(), "broker dai balance non 0");
-      
       assert.equal(
         brokerBzzBalance.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance non 0"
       );
-      
       assert.equal(
         brokerEthBalance.toString(),
         brokerDaiBalance.toString(),
         "broker eth balance non 0"
       );
-      
       assert.equal(
         brokerDaiBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker dai balance after non 0"
       );
-      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance after non 0"
       );
-      
       assert.equal(
         brokerEthBalanceAfter.toString(),
         brokerDaiBalance.toString(),
@@ -561,7 +524,6 @@ describe("🤝 Broker tests", () => {
         pre_mint_sequence.dai.cost,
         "Curve DAI is not as expected before mint"
       );
-      
       assert.equal(
         curveDaiBalanceAfter.toString(),
         test_settings.dai.curve_collateral_after_buy,
@@ -573,7 +535,6 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "initial supply of bzz token unexpected"
       );
-      
       assert.equal(
         tokenSupplyAfter.toString(),
         test_settings.eth_broker.bzz.after_buy,
@@ -585,13 +546,11 @@ describe("🤝 Broker tests", () => {
         mockRouterBzzBalanceAfter.toString(),
         "Mock router BZZ balance incorrect (non 0)"
       );
-      
       assert.equal(
         mockRouterDaiBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount,
         "mock router starts with incorrect dai balance"
       );
-      
       assert.equal(
         mockRouterDaiBalanceAfter.toString(),
         test_settings.eth_broker.dai.mock_router_dai_balance_after_mint,
@@ -691,22 +650,19 @@ describe("🤝 Broker tests", () => {
       // Testing expected behaviour
       assert.equal(
         mockRouterEthBalance.toString(),
-        test_settings.eth_broker.eth.seed_eth_amount,
+        test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Mock router ETH balance incorrect"
       );
-      
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_mint,
         "Mock router ETH balance incorrect after mint"
       );
-      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance does not change with mint"
       );
-      
       assert.equal(
         daiCost.toString(),
         test_settings.dai.buyCost,
@@ -718,7 +674,6 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.eth.buy_price,
         "ETH cost for token amount unexpected"
       );
-      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.buy_price,
@@ -726,21 +681,17 @@ describe("🤝 Broker tests", () => {
       );
       // user balances changes as expected with mint
       assert.equal(userDaiBalance.toString(), 0, "User starts without DAI");
-      
       assert.equal(userBzzBalance.toString(), 0, "User starts without BZZ");
-      
       assert.notEqual(
         userEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
-      
       assert.equal(
         userDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
-      
       assert.equal(
         userBzzBalanceAfter.toString(),
         0,
@@ -748,21 +699,17 @@ describe("🤝 Broker tests", () => {
       );
       // user receiver balances changes as expected with mint
       assert.equal(userReceiverDaiBalance.toString(), 0, "User starts without DAI");
-      
       assert.equal(userReceiverBzzBalance.toString(), 0, "User starts without BZZ");
-      
       assert.notEqual(
         userReceiverEthBalance.toString(),
         userEthBalanceAfter.toString(),
         "User ETH balance did not change with mint"
       );
-      
       assert.equal(
         userReceiverDaiBalanceAfter.toString(),
         0,
         "User DAI balance incorrectly changed with eth mint"
       );
-      
       assert.equal(
         userReceiverBzzBalanceAfter.toString(),
         test_settings.bzz.buyAmount.toString(),
@@ -770,31 +717,26 @@ describe("🤝 Broker tests", () => {
       );
       // broker balance remains 0 on all assets
       assert.equal(0, brokerDaiBalance.toString(), "broker dai balance non 0");
-      
       assert.equal(
         brokerBzzBalance.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance non 0"
       );
-      
       assert.equal(
         brokerEthBalance.toString(),
         brokerDaiBalance.toString(),
         "broker eth balance non 0"
       );
-      
       assert.equal(
         brokerDaiBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker dai balance after non 0"
       );
-      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         brokerDaiBalance.toString(),
         "broker bzz balance after non 0"
       );
-      
       assert.equal(
         brokerEthBalanceAfter.toString(),
         brokerDaiBalance.toString(),
@@ -806,7 +748,6 @@ describe("🤝 Broker tests", () => {
         pre_mint_sequence.dai.cost,
         "Curve DAI is not as expected before mint"
       );
-      
       assert.equal(
         curveDaiBalanceAfter.toString(),
         test_settings.dai.curve_collateral_after_buy,
@@ -818,7 +759,6 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "initial supply of bzz token unexpected"
       );
-      
       assert.equal(
         tokenSupplyAfter.toString(),
         test_settings.eth_broker.bzz.after_buy,
@@ -830,13 +770,11 @@ describe("🤝 Broker tests", () => {
         mockRouterBzzBalanceAfter.toString(),
         "Mock router BZZ balance incorrect (non 0)"
       );
-
       assert.equal(
         mockRouterDaiBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount,
         "mock router starts with incorrect dai balance"
       );
-      
       assert.equal(
         mockRouterDaiBalanceAfter.toString(),
         test_settings.eth_broker.dai.mock_router_dai_balance_after_mint,
@@ -958,16 +896,14 @@ describe("🤝 Broker tests", () => {
       );
       // User balance in various currencies expected
       assert.equal(userDaiBalance.toString(), 0, "User DAI balance incorrect");
-
       assert.equal(
         userBzzBalance.toString(),
         test_settings.bzz.buyAmount.toString(),
         "User BZZ balance incorrect"
       );
-
       assert.notEqual(
         userEthBalance.toString(),
-        0,
+        "0",
         "User ETH balance incorrect"
       );
       // broker balances are as expected
@@ -976,16 +912,14 @@ describe("🤝 Broker tests", () => {
         0,
         "broker incorrectly has a balance in DAI"
       );
-      
       assert.equal(
         brokerBzzBalance.toString(),
         0,
         "broker incorrectly has a balance in BZZ"
       );
-      
       assert.equal(
         brokerEthBalance.toString(),
-        0,
+        "0",
         "broker incorrectly has a balance in ETH"
       );
       // Curve has correct balance
@@ -1000,13 +934,11 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
         "Mock router has incorrect DAI balance"
       );
-
       assert.equal(
         mockRouterBzzBalance.toString(),
         0,
         "Mock router has incorrect BZZ balance"
       );
-      
       assert.equal(
         mockRouterEthBalance.toString(),
         test_settings.eth_broker.eth.seed_eth_amount.toString(),
@@ -1018,19 +950,16 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.bzz.initial_supply,
         "BZZ current supply incorrect"
       );
-      
       assert.equal(
         daiCost.toString(),
         test_settings.eth_broker.dai.buy_cost,
         "DAI cost for token amount unexpected"
       );
-      
       assert.equal(
         ethCost.toString(),
         test_settings.eth_broker.eth.sell_reward,
         "ETH cost for token amount unexpected"
       );
-      
       assert.equal(
         buyPrice.toString(),
         test_settings.eth_broker.eth.sell_reward,
@@ -1042,13 +971,11 @@ describe("🤝 Broker tests", () => {
         0,
         "User incorrectly has left over DAI after burn"
       );
-      
       assert.equal(
         userBzzBalanceAfter.toString(),
         0,
         "User incorrectly has left over BZZ after burn"
       );
-      
       assert.notEqual(
         userEthBalanceAfter.toString(),
         userEthBalance.toString(),
@@ -1060,16 +987,14 @@ describe("🤝 Broker tests", () => {
         0,
         "broker incorrectly has a balance in DAI"
       );
-      
       assert.equal(
         brokerBzzBalanceAfter.toString(),
         0,
         "broker incorrectly has a balance in BZZ"
       );
-      
       assert.equal(
         brokerEthBalanceAfter.toString(),
-        0,
+        "0",
         "broker incorrectly has a balance in ETH after burn"
       );
       // Curve has correct balance
@@ -1084,13 +1009,11 @@ describe("🤝 Broker tests", () => {
         test_settings.eth_broker.dai.mock_router_dai_balance_after_burn.toString(),
         "Mock router has incorrect DAI balance"
       );
-      
       assert.equal(
         mockRouterBzzBalanceAfter.toString(),
         0,
         "Mock router has incorrect BZZ balance"
       );
-
       assert.equal(
         mockRouterEthBalanceAfter.toString(),
         test_settings.eth_broker.eth.mock_router_eth_balance_after_burn.toString(),

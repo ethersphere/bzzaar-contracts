@@ -1,33 +1,27 @@
-require("@nomiclabs/hardhat-waffle");
-const hre = require("hardhat");
-const { expect } = require("chai");
-const {
-    ethers,
-    curve_test_abi,
-    token_abi,
-    mock_dai_abi,
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { expect } from "chai";
+import { Contract } from "ethers";
+import { ethers } from "hardhat";
+import {
     pre_mint_sequence,
     tokenSettings,
     test_settings
-} = require("./settings.test.js");
+} from "./settings.test";
 
 describe("🧮 Curve Calculations Tests", () => {
-    let investor;
-    let owner;
-    let user;
-    let user_two;
+    let investor: SignerWithAddress;
+    let owner: SignerWithAddress;
+    let user: SignerWithAddress;
     
-    let deployer;
-    let tokenInstance;
-    let collateralInstance;
-    let curveTestInstance;
+    let tokenInstance: Contract;
+    let collateralInstance: Contract;
+    let curveTestInstance: Contract;
 
     beforeEach(async () => {
       const accounts = await ethers.getSigners();
       owner = accounts[0];
       investor = accounts[1];
       user = accounts[2];
-      user_two = accounts[3];
 
       const accountSlice = accounts.slice(4,19);
       const lossaEther = ethers.utils.parseEther("9999.99");
@@ -86,6 +80,7 @@ describe("🧮 Curve Calculations Tests", () => {
             expect(initialCost.toString()).to.equal(pre_mint_sequence.dai.cost);
 
             expect(primFuncAtZero.toString()).to.equal("0");
+
         });
         /**
          * Testing that the price per token is never 0, even before the curve has
@@ -98,6 +93,7 @@ describe("🧮 Curve Calculations Tests", () => {
             expect(spotPriceAtStart.toString()).to.not.equal("0");
 
             expect(spotPriceAtStart.toString()).to.equal("1");
+
         });
     });
 
@@ -143,6 +139,7 @@ describe("🧮 Curve Calculations Tests", () => {
             let helper = await curveTestInstance.helper(pre_mint_sequence.whole);
             // Testing expected behaviour
             expect(helper.toString()).to.equal(test_settings.helper_value);
+
         });
         /**
          * Testing that after the curve has pre-minted that the price for each
@@ -172,6 +169,7 @@ describe("🧮 Curve Calculations Tests", () => {
             expect(primFuncAtPreMint.toString()).to.equal(test_settings.dai.curve_coll_at_prem);
 
             expect(spotPricePostMint.toString()).to.equal(test_settings.dai.one_cost);
+
         });
         /**
          * Testing that after the curves pre-mint the sell price for each token
@@ -200,6 +198,7 @@ describe("🧮 Curve Calculations Tests", () => {
             );
             // Testing expected behaviour
             expect(sellRewardWithdraw[0].toString()).to.equal(test_settings.dai.buyCost);
+
         });
     });
 });
