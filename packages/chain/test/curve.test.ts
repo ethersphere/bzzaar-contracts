@@ -966,12 +966,7 @@ import {
             await expect(tokenInstance.connect(user).burn(
                 test_settings.bzz.sellAmount
             )).to.be.revertedWith(test_settings.errors.minter_is_minter);
-            // await assert.revertWith(
-            //     tokenInstance.connect(user).burn(
-            //         test_settings.bzz.sellAmount
-            //     ),
-            //     test_settings.errors.minter_is_minter
-            // );
+
             // Approve a spender 
             await tokenInstance.connect(user).approve(
                 user_two.address,
@@ -982,13 +977,7 @@ import {
                 user_two.address,
                 test_settings.bzz.sellAmount
             )).to.be.revertedWith(test_settings.errors.minter_is_minter);
-            // await assert.revertWith(
-            //     tokenInstance.connect(user).burnFrom(
-            //         user_two.address,
-            //         test_settings.bzz.sellAmount
-            //     ),
-            //     test_settings.errors.minter_is_minter
-            // );
+
         });
         /**
          * Tests that if a user with a minter role can burn and burnFrom.
