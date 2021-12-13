@@ -116,6 +116,9 @@ In testing environments, the script will deploy the BZZ token and bonding curve,
 Please ensure that you have filled in all the following values from the `.env.example` before attempting to run the script (private key and Infura API key are only necessary for Goerli):
 
 ```
+# the address of the Uniswap v2 router (router 02) on Goerli
+ROUTER_ADDRESS_GOERLI= # currently 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
+
 # Deployer EOA private key
 GOERLI_DEPLOYER_PRIV_KEY=
 
@@ -160,6 +163,7 @@ Then run the following:
 ```
 yarn deploy --network goerli
 ```
+Note that in order to test the full functionality of the Eth Broker contract (relevant for Goerli deployments), you will need to create a Uniswap v2 pool between the newly deployed Mock DAI ERC20 (referred to as the `COLLATERAL_TOKEN` in the `.example.env` snippet above) and ETH on the Goerli deployment of Uniswap v2.
 
 ## Mainnet Deployment
 
